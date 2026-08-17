@@ -29,9 +29,14 @@ def haversine_matrix(locations: list[Location]) -> list[list[float]]:
         for j in range(n):
             if i == j:
                 continue
-            km = _haversine_km(locations[i], locations[j]) * _STRAIGHT_LINE_CORRECTION
-            matrix[i][j] = km / _AVG_URBAN_SPEED_KMH * 60
+            matrix[i][j] = leg_minutes(locations[i], locations[j])
     return matrix
+
+
+def leg_minutes(a: Location, b: Location) -> float:
+    """單一段路程的行車分鐘數，供排程逐段計算用（不需要整張矩陣時）。"""
+    km = _haversine_km(a, b) * _STRAIGHT_LINE_CORRECTION
+    return km / _AVG_URBAN_SPEED_KMH * 60
 
 
 def _haversine_km(a: Location, b: Location) -> float:

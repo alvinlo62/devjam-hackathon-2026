@@ -1,17 +1,20 @@
 """
-大型廢棄物收運規則表（純資料，無邏輯）：資格判定 + 品項屬性。
+大型廢棄物收運規則表（純資料，無邏輯）：資格判定 + 品項屬性 + 清潔隊駐地。
 
-來源分三種，逐條標註：
+來源分四種，逐條標註：
 - ✅ 轉錄自 docs/spec.md §6.2（該文件標示「已確認，來源：臺北市環保局常見問答」）
 - 🔧 本專案為了讓 agent 能觸發追問/分類而設計的關鍵字啟發式，
   不是法規原文的窮舉，僅供 Demo 判斷用，之後應以官方公告校正
 - 📏 常識推估的物理屬性（重量、尺寸），非官方規範，僅供 Demo 呈現，
   spec.md §7.1 明講這類數字沒有來源依據，畫面上只能當「系統參考值」
+- 📍 地址查證自臺北市環保局清潔隊聯絡資訊頁（見 SOURCE_URLS["depot_directory"]），
+  但經緯度是用 OpenStreetMap Nominatim 對「街道」查詢得到的近似值，
+  查不到精確門牌號碼，只有街道等級的精度，不是精確地理編碼結果，見下方註解
 
 ★ 未經查證的內容一律標 TODO，不得自行編造數值（尤其罰則金額，
   spec.md §6.4 已標示 ⚠️ 待查證，本檔案不引用）。
 """
-from models import WeightBand
+from models import Location, WeightBand
 
 # ---------- ✅ 收運品項清單（spec.md §6.2）----------
 # 分類 -> 品項名稱清單。用於資格判定的「在清單內即 eligible」判斷。
@@ -116,10 +119,40 @@ DEFAULT_ITEM_ATTRIBUTES: tuple[WeightBand, float, bool, bool, float] = (
     WeightBand.MEDIUM, 100.0, False, False, 1.0,
 )
 
+# ---------- 📍 清潔隊駐地（spec.md §4.1 排程起點）----------
+# 地址逐字轉錄自 SOURCE_URLS["depot_directory"]。
+# 經緯度用 OpenStreetMap Nominatim 查該街道得到的街道等級近似值
+# （查不到門牌號碼，Nominatim 對台灣地址的門牌資料很少見），
+# 不是精確地理編碼結果，只是比完全瞎猜的座標可信，Demo 前若要
+# 更精確（例如串 Google Geocoding API），可以直接替換這裡的 lat/lng，
+# 不影響呼叫端的介面。
+#
+# 目前只查了 spec.md §4.1 範例會用到的三個行政區（信義/大安/松山），
+# 其餘行政區未查證，落在 DEFAULT_DEPOT（非真實地址）。
+DEPOTS: dict[str, Location] = {
+    "信義區": Location(
+        address="110台北市信義區福德街86號3樓（信義區清潔隊）",
+        district="信義區", lat=25.0363, lng=121.5788,
+    ),
+    "大安區": Location(
+        address="10677臺北市大安區通化街140巷19號（大安區清潔隊）",
+        district="大安區", lat=25.0287, lng=121.5538,
+    ),
+    "松山區": Location(
+        address="10574臺北市松山區民生東路四段133號4樓（松山區清潔隊）",
+        district="松山區", lat=25.0581, lng=121.5537,
+    ),
+}
+
+# 未涵蓋在 DEPOTS 裡的行政區用這個 fallback。
+# TODO：非真實地址，只是讓排程邏輯在缺資料時仍能跑，不得當作查證資料使用。
+DEFAULT_DEPOT = Location(address="清潔隊駐地（未查證，暫用預設值）", district="", lat=25.0375, lng=121.5637)
+
 # ---------- 查證狀態 ----------
 # 已比對臺北市環保局公告原文，ACCEPTED_ITEMS / QUANTITY_THRESHOLDS /
-# EXCLUDED_APPLICANTS / 服務時間 / EXCLUDED_APPLICANT_REFERRAL 逐字相符。
-# STONE_KEYWORDS 仍待查證：兩篇原文都只寫「非石材類」，未定義石材具體範圍。
+# EXCLUDED_APPLICANTS / 服務時間 / EXCLUDED_APPLICANT_REFERRAL / DEPOTS 地址
+# 逐字相符。STONE_KEYWORDS 仍待查證：兩篇原文都只寫「非石材類」，
+# 未定義石材具體範圍。DEPOTS 的經緯度只是街道等級近似值，非精確地理編碼。
 # 罰則金額、代清除業者收費標準原文均未提及，本檔案不引用（見 spec.md §6.4 ⚠️）。
 LAST_VERIFIED: str | None = "2026-08-17"
 SOURCE_URLS: dict[str, str] = {
@@ -131,4 +164,5 @@ SOURCE_URLS: dict[str, str] = {
         "https://www.dep.gov.taipei/News_Content.aspx"
         "?n=ACEFA960B5A4ACD7&s=80BCA379CDB2FF73"
     ),
+    "depot_directory": "https://www.dep.gov.taipei/cp.aspx?n=F1AE8510EEF140EF",
 }
