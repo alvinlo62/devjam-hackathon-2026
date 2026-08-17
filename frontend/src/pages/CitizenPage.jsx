@@ -3,6 +3,8 @@ import { api, fileToBase64 } from '../api/client.js'
 import MessageBlock from '../components/MessageBlock.jsx'
 import { DEMO_CASES } from '../lib/demoCases.js'
 import { extractDistrict, loadGooglePlaces } from '../lib/googleMaps.js'
+import { normalizeToJpeg } from '../lib/imageNormalize.js'
+import logo from '../assets/logo.jpg'
 
 // 目前只有這三個行政區有真的班次資料（fixtures/demo_cases.json）。
 const DISTRICTS = ['信義區', '大安區', '松山區']
@@ -101,6 +103,7 @@ function AddressStep({ district, onConfirm }) {
 }
 
 export default function CitizenPage() {
+  const fileInputRef = useRef(null)
   const [applicantOptions, setApplicantOptions] = useState([])
   const [shifts, setShifts] = useState([])
   const [photoFile, setPhotoFile] = useState(null)
@@ -183,8 +186,16 @@ export default function CitizenPage() {
   // 最後的摘要頁才有真的物品資訊可以顯示；辨識結果直接帶進最終送出的
   // /api/cases 呼叫（見 submitFinal），同一張照片不會被辨識兩次。
   async function handlePhotoChange(e) {
-    const file = e.target.files?.[0]
+    let file = e.target.files?.[0]
     if (!file) return
+    // 選完照片的第一時間就統一轉成 JPEG（見 lib/imageNormalize.js），
+    // 讓預覽、辨識、送出用的都是同一份格式一致的檔案。
+    try {
+      file = await normalizeToJpeg(file)
+    } catch (err) {
+      setErrorMsg(err.message)
+      return
+    }
     setPhotoFile(file)
     setPhotoPreview(URL.createObjectURL(file))
     setStarted(true)
@@ -202,6 +213,21 @@ export default function CitizenPage() {
     } finally {
       setAnalyzing(false)
     }
+  }
+
+  // 重新選照片：回到上傳畫面，讓民眾可以換一張重來，不用重新整理頁面。
+  // 只在案件還沒真的送出前（inWizard）才會顯示這顆按鈕，見 JSX 端。
+  function resetPhoto() {
+    setPhotoFile(null)
+    setPhotoPreview(null)
+    setAnalyzedItems(null)
+    setAnalyzeError(null)
+    setAnalyzing(false)
+    setWizardStep(null)
+    setStarted(false)
+    setErrorMsg(null)
+    // 清空 input 的值，不然選同一個檔案時瀏覽器不會觸發 onChange。
+    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   function appendAgentMessage(message, resultCase, persist = true) {
@@ -338,7 +364,7 @@ export default function CitizenPage() {
       <header className="site-header">
         <div className="header-inner">
           <a className="brand" href="/">
-            <span className="brand-mark">🚛</span>
+            <img className="brand-mark" src={logo} alt="CityTask" />
             <span>
               <strong>CityTask</strong>
               <small>大型廢棄物清運服務</small>
@@ -348,7 +374,7 @@ export default function CitizenPage() {
             <span className="header-trust">
               市民服務<span className="demo-pill">DEMO</span>
             </span>
-            <a href="/dashboard">班長工作台 →</a>
+            <a href="/dashboard">清潔隊工作台 →</a>
           </div>
         </div>
       </header>
@@ -402,6 +428,7 @@ export default function CitizenPage() {
                     </label>
                     <input
                       id="photo-input"
+                      ref={fileInputRef}
                       className="upload-target__input"
                       type="file"
                       accept="image/*"
@@ -652,6 +679,11 @@ export default function CitizenPage() {
                   <span />
                   已收到
                 </span>
+              )}
+              {photoPreview && inWizard && (
+                <button type="button" className="photo-reset" onClick={resetPhoto}>
+                  重新選擇照片
+                </button>
               )}
             </div>
             {photoPreview ? (

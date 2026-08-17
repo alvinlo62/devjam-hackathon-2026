@@ -3,6 +3,7 @@ import { api } from '../api/client.js'
 import TraceList from '../components/TraceList.jsx'
 import { donutSlices, summarizeCategories } from '../lib/categorize.js'
 import { loadGoogleMaps } from '../lib/googleMaps.js'
+import logo from '../assets/logo.jpg'
 
 const ELIGIBILITY_TAG = {
   needs_review: { label: '待班長判定', className: 'tag tag--warning' },
@@ -456,10 +457,10 @@ export default function DashboardPage() {
       <header className="dashboard-header">
         <div className="dashboard-header-inner">
           <a href="/dashboard" className="dispatch-brand">
-            <span>🚛</span>
+            <img className="brand-mark" src={logo} alt="CityTask" />
             <div>
               <strong>CityTask 調度台</strong>
-              <small>清潔隊班長作業系統</small>
+              <small>清潔隊作業系統</small>
             </div>
           </a>
           <nav>

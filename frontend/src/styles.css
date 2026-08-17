@@ -114,7 +114,9 @@ a { color: inherit; }
 .header-inner { width: min(1120px, calc(100% - 40px)); height: 100%; margin: auto; display: flex; align-items: center; justify-content: space-between; }
 
 .brand { min-height: 48px; display: inline-flex; align-items: center; gap: 11px; color: var(--ink); text-decoration: none; }
-.brand-mark { width: 34px; height: 34px; display: grid; place-items: center; color: #fff; border-radius: 3px; background: var(--brand); }
+/* logo.jpg 本身背景是白色、沒去背，header 背景也是白色（#fff），
+   直接鋪滿方框讓兩邊白底融在一起，不再用色塊當底色。 */
+.brand-mark { width: 38px; height: 38px; object-fit: contain; display: block; }
 .brand > span:last-child { display: grid; line-height: 1.1; }
 .brand strong { font-size: 16px; letter-spacing: 0; }
 .brand small { margin-top: 4px; font-size: 11px; color: var(--ink-soft); }
@@ -309,6 +311,8 @@ a { color: inherit; }
 .aside-heading { margin-bottom: 13px; display: flex; justify-content: space-between; align-items: center; color: var(--ink); font-size: 13px; font-weight: 700; }
 .aside-state { display: inline-flex; gap: 5px; align-items: center; color: var(--green); font-size: 10px; }
 .aside-state > span { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+.photo-reset { padding: 0; border: 0; background: none; color: var(--blue); font-size: 12px; font-weight: 700; cursor: pointer; text-decoration: underline; }
+.photo-reset:hover { color: var(--brand-dark); }
 .photo-frame { overflow: hidden; aspect-ratio: 4 / 3; border-radius: 3px; background: #dce4df; }
 .photo-frame img { width: 100%; height: 100%; display: block; object-fit: contain; }
 .photo-empty { min-height: 200px; padding: 28px 22px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; border: 1px dashed var(--line-strong); border-radius: 3px; background: #f7f9f8; }
@@ -346,7 +350,6 @@ a { color: inherit; }
 .dashboard-header { height: 60px; border-bottom: 1px solid var(--line); background: #fff; }
 .dashboard-header-inner { width: min(1240px, calc(100% - 40px)); height: 100%; margin: auto; display: flex; align-items: center; justify-content: space-between; }
 .dispatch-brand { min-height: 48px; display: flex; align-items: center; gap: 11px; color: inherit; text-decoration: none; }
-.dispatch-brand > span { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 3px; color: #fff; background: var(--brand); }
 .dispatch-brand > div { display: grid; gap: 2px; }
 .dispatch-brand strong { font-size: 16px; letter-spacing: -.01em; }
 .dispatch-brand small { color: var(--ink-soft); font-size: 10px; }
