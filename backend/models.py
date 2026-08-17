@@ -131,6 +131,28 @@ class EligibilityResult(BaseModel):
     items: list[ItemEligibility] = []   # 逐品項判定明細
 
 
+# ==================== Agent ====================
+# TraceStep 定義在這裡（而不是排在 Stop/Shift/InsertionPlan 之後），
+# 是因為下面的 Case 需要引用它存放 trace 欄位；Agent 概念上仍屬於
+# 「訊息流／agent」那一群，只是提前宣告避免前向參照。
+
+class TraceStep(BaseModel):
+    """
+    決策軌跡面板的單一步驟（spec.md §5.3），本專案最重要的 UI 元件的資料來源。
+
+    is_pivot 標記 agent「改變計畫」的關鍵步驟——例如 check_capacity
+    回傳超載後，agent 自行決定改呼叫 query_next_day，而非照原計畫塞入
+    當班（spec.md §5.2「超載 → 於是改查明日」即為 agent 自主決策的證據）。
+    此欄位讓前端能特別標示這一行（entry 動畫、顏色強調），
+    不需要前端自己猜哪一步是「轉折點」。
+    """
+    icon: str
+    action: str
+    detail: str
+    tool: str | None = None   # 對應呼叫的 services/ai 工具名稱，例如 check_capacity
+    is_pivot: bool = False
+
+
 class Case(BaseModel):
     """一筆清運案件，貫穿民眾端送件與班長端排程兩端。"""
     id: str
@@ -141,6 +163,9 @@ class Case(BaseModel):
     resource_hint: str | None = None  # AI 生成的資源建議白話文（例如建議配置人力）
     note: str | None = None           # 民眾補充說明或裁量備註
     created_at: datetime = Field(default_factory=datetime.now)
+    # agent 處理這筆案件時收集的完整決策軌跡（spec.md §5.3），跟著案件存下來，
+    # 讓班長端事後也能看到，不是只存在送件當下那次 API response 裡。
+    trace: list[TraceStep] = []
 
 
 # ==================== 排程 ====================
@@ -191,25 +216,6 @@ class InsertionPlan(BaseModel):
     resulting_load_ratio: float
     feasible: bool
     reason: str | None = None
-
-
-# ==================== Agent ====================
-
-class TraceStep(BaseModel):
-    """
-    決策軌跡面板的單一步驟（spec.md §5.3），本專案最重要的 UI 元件的資料來源。
-
-    is_pivot 標記 agent「改變計畫」的關鍵步驟——例如 check_capacity
-    回傳超載後，agent 自行決定改呼叫 query_next_day，而非照原計畫塞入
-    當班（spec.md §5.2「超載 → 於是改查明日」即為 agent 自主決策的證據）。
-    此欄位讓前端能特別標示這一行（entry 動畫、顏色強調），
-    不需要前端自己猜哪一步是「轉折點」。
-    """
-    icon: str
-    action: str
-    detail: str
-    tool: str | None = None   # 對應呼叫的 services/ai 工具名稱，例如 check_capacity
-    is_pivot: bool = False
 
 
 # ==================== 訊息流 ====================

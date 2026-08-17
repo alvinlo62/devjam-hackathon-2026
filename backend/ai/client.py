@@ -2,22 +2,25 @@
 Gemini 呼叫的唯一入口。其他地方不要直接 import SDK。
 好處：換模型、加重試、切 DEMO_MODE 都只改這一支。
 
-⚠️ SDK 套件名、模型字串、structured output 用法變動很快。
-   比賽前務必到官方文件確認，不要照這份或任何教學文章直接抄。
+⚠️ Interactions API 已 GA，generateContent 已列為 legacy，本檔案改用
+   client.interactions.create()。格式已對照官方文件查證（2026-08-17）：
+   - function calling 格式：https://ai.google.dev/gemini-api/docs/function-calling
+   - 圖片輸入格式：https://ai.google.dev/gemini-api/docs/interactions/image-understanding
+   - output_text 等基本用法：https://ai.google.dev/gemini-api/docs/interactions/text-generation
+
+   模型字串三份官方文件寫的不一樣（gemini-3.5-flash / gemini-3.7-flash，
+   spec.md 猜的是 gemini-3.6-flash），無法從文件本身判斷哪個是實際可用的，
+   config.GEMINI_MODEL 的值務必在比賽前用你自己的 API key 實測確認。
 """
-import base64
 import json
 import logging
 import threading
 from pathlib import Path
-from typing import Type, TypeVar
-
-from pydantic import BaseModel
+from typing import Any
 
 import config
 
 log = logging.getLogger(__name__)
-T = TypeVar("T", bound=BaseModel)
 
 _client = None
 _lock = threading.Lock()
@@ -43,49 +46,51 @@ def _get_client():
     return _client
 
 
-def generate_text(prompt: str, image_base64: str | None = None) -> str:
-    """純文字輸出。"""
-    parts: list = [prompt]
-    if image_base64:
-        parts.append(_image_part(image_base64))
-
-    resp = _get_client().models.generate_content(
-        model=config.GEMINI_MODEL,
-        contents=parts,
-    )
-    return resp.text
-
-
-def generate_structured(
-    prompt: str,
-    schema: Type[T],
-    image_base64: str | None = None,
-) -> T:
+def create(
+    input_: str | list[dict],
+    tools: list[dict] | None = None,
+    previous_id: str | None = None,
+):
     """
-    結構化輸出：直接拿 Pydantic model 當 schema。
-    這是整個模板最有價值的一招 —— 省掉解析自由文字的所有麻煩。
+    呼叫 Interactions API，回傳 interaction 物件。
+
+    input_：純字串，或 [{"type": "text", ...}, {"type": "image", ...},
+    {"type": "function_result", ...}] 這類 content part 清單（多輪帶工具
+    結果時用）。
+    tools：ai/tools.py 的 function declaration 清單，見該檔案格式。
+    previous_id：延續前一輪對話時帶入，對應 previous_interaction_id。
+
+    回傳的 interaction.output_text 是最終文字；interaction.steps 裡
+    type == "function_call" 的項目要取 .name / .arguments / .id
+    （.id 就是回覆時要帶的 call_id）。
     """
-    parts: list = [prompt]
-    if image_base64:
-        parts.append(_image_part(image_base64))
-
-    resp = _get_client().models.generate_content(
-        model=config.GEMINI_MODEL,
-        contents=parts,
-        config={
-            "response_mime_type": "application/json",
-            "response_schema": schema,
-        },
-    )
-    return schema.model_validate(json.loads(resp.text))
+    kwargs: dict[str, Any] = {"model": config.GEMINI_MODEL, "input": input_}
+    if tools:
+        kwargs["tools"] = tools
+    if previous_id:
+        kwargs["previous_interaction_id"] = previous_id
+    return _get_client().interactions.create(**kwargs)
 
 
-def _image_part(image_base64: str):
-    from google.genai import types
-    return types.Part.from_bytes(
-        data=base64.b64decode(image_base64),
-        mime_type="image/jpeg",
-    )
+def function_result(name: str, call_id: str, result: Any) -> dict:
+    """
+    把工具執行結果（見 ai/orchestrator.py）包成 Interactions API 要的
+    function_result content part，放進下一輪 create() 的 input_ 裡。
+    """
+    return {
+        "type": "function_result",
+        "name": name,
+        "call_id": call_id,
+        "result": [{"type": "text", "text": json.dumps(result, ensure_ascii=False)}],
+    }
+
+
+def image_input(prompt: str, image_base64: str) -> list[dict]:
+    """組成帶圖片的 input（inline base64，不需要先用 Files API 上傳）。"""
+    return [
+        {"type": "text", "text": prompt},
+        {"type": "image", "data": image_base64, "mime_type": "image/jpeg"},
+    ]
 
 
 def load_prompt(name: str, **kwargs) -> str:
