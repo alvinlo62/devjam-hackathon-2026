@@ -10,7 +10,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 
 # ==================== 列舉 ====================
@@ -198,6 +198,11 @@ class Shift(BaseModel):
     stops: list[Stop] = []
     total_minutes: float = 0.0
 
+    # @computed_field（不是普通 @property）：pydantic 預設不會把純
+    # @property 序列化進 model_dump()/JSON，前端會拿不到這兩個欄位、
+    # 得自己重算 used_units / capacity_units。這裡明確標成 computed
+    # field，讓 API 回應直接帶著算好的值，不用前後端各算一次。
+    @computed_field
     @property
     def load_ratio(self) -> float:
         """已用容量佔比，例如 0.96 代表 96%（spec.md §4.2）。"""
@@ -205,6 +210,7 @@ class Shift(BaseModel):
             return 0.0
         return self.used_units / self.capacity_units
 
+    @computed_field
     @property
     def overloaded(self) -> bool:
         """超過容量閾值即為超載，觸發畫面紅色警示與 agent 改查明日班次。"""
