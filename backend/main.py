@@ -18,9 +18,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 import config
-from models import AnalyzeRequest, AnalyzeResponse, ApiResponse
-from ai.tasks import extract, explain
-from services import analyzer
+from models import ApiResponse
 from db.cloudsql import client as cloudsql_client
 
 logging.basicConfig(level=logging.INFO)
@@ -82,30 +80,9 @@ def health():
     )
 
 
-@app.post("/api/analyze", response_model=ApiResponse)
-@limiter.limit("15/minute")
-def analyze(request: Request, req: AnalyzeRequest):
-    """
-    主流程，三段式：
-      1. AI 把非結構化輸入變成結構化資料
-      2. 程式做確定性判定  ← 核心，AI 不碰
-      3. AI 把結果講成人話
-    """
-    try:
-        items, extract_fallback = extract.run(text=req.text, image_base64=req.image_base64)
-        results = analyzer.evaluate(items, options=req.options)
-        summary, explain_fallback = explain.run(results)
-
-        return ApiResponse(
-            data=AnalyzeResponse(
-                results=results,
-                summary=summary,
-                used_fixture=extract_fallback or explain_fallback,
-            )
-        )
-    except Exception as e:
-        log.exception("analyze failed")
-        return ApiResponse(ok=False, error=str(e))
+# 案件相關 endpoint（送件、排程、插入試算、接受建議）依 models.py 的
+# SubmitCaseRequest/ScheduleResponse/ProposeInsertionRequest/AcceptInsertionRequest
+# 陸續補在這裡；範例路由已移除，@limiter.limit(...) 用法參考 git 歷史裡的舊 /api/analyze。
 
 
 # Cloud Run 用：Dockerfile 把 `frontend` build 出來的靜態檔放進 ./static。
