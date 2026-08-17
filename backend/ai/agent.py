@@ -25,7 +25,11 @@ log = logging.getLogger(__name__)
 MAX_TURNS = 8  # 對應 ADK RunConfig(max_llm_calls=...)，避免無限迴圈
 
 
-def run_scripted(case: Case, renovation_by: str | None = None) -> Case:
+def run_scripted(
+    case: Case,
+    renovation_by: str | None = None,
+    applicant_type: str = "household",
+) -> Case:
     """
     離線劇本。決策順序寫死，但呼叫的是跟 run_llm 完全相同的
     orchestrator.execute()，所以畫面（trace 的形狀）跟正式路徑一致。
@@ -33,6 +37,10 @@ def run_scripted(case: Case, renovation_by: str | None = None) -> Case:
     renovation_by：民眾回答完裝潢廢料追問後續答同一案件時帶入
     （見 main.py 的 POST /api/cases case_id 續答路徑），讓
     check_eligibility 這次能算出最終判定，不再卡在 clarification_needed。
+
+    applicant_type：申請人身份（spec.md §6.2），跟 renovation_by 不同，
+    這是送件當下就該有的輸入，不是 agent 反應式追問出來的——見
+    models.SubmitCaseRequest.applicant_type、GET /api/applicant-types。
     """
     store.add_case(case)
     trace: list[TraceStep] = [_photo_analysis_step(case)]
@@ -47,7 +55,11 @@ def run_scripted(case: Case, renovation_by: str | None = None) -> Case:
     item_names = [item.name for item in case.items]
     quantities = [item.quantity for item in case.items]
 
-    elig_args = {"item_names": item_names, "quantities": quantities}
+    elig_args = {
+        "item_names": item_names,
+        "quantities": quantities,
+        "applicant_type": applicant_type,
+    }
     if renovation_by:
         elig_args["renovation_by"] = renovation_by
     elig = call("check_eligibility", elig_args)
@@ -93,13 +105,21 @@ def run_scripted(case: Case, renovation_by: str | None = None) -> Case:
     return result
 
 
-def run_llm(case: Case, renovation_by: str | None = None) -> Case:
+def run_llm(
+    case: Case,
+    renovation_by: str | None = None,
+    applicant_type: str = "household",
+) -> Case:
     """
     真正的 agent 迴圈，用 Google ADK 的 LlmAgent + Runner 執行。
 
     renovation_by：續答同一案件時帶入，併入給模型的案件摘要文字裡，
     模型看到之後應該會自己在呼叫 check_eligibility 時帶上這個答案
     （不是這裡幫模型決定要不要用，只是把民眾的回答如實告訴它）。
+
+    applicant_type：申請人身份（spec.md §6.2），同樣併入案件摘要文字，
+    由模型自己決定呼叫 check_eligibility 時帶上——這裡不幫模型判斷
+    要不要用這個值，只是把資訊如實告訴它。
 
     ADK 的 tools 直接吃 ai/tools.py 的 Python 函式（框架自己讀 type hint
     跟 docstring 生成 schema），每次工具被呼叫後，after_tool_callback
@@ -152,7 +172,9 @@ def run_llm(case: Case, renovation_by: str | None = None) -> Case:
         session_id=session.id,
         new_message=genai_types.Content(
             role="user",
-            parts=[genai_types.Part(text=_case_summary_text(case, renovation_by=renovation_by))],
+            parts=[genai_types.Part(text=_case_summary_text(
+                case, renovation_by=renovation_by, applicant_type=applicant_type,
+            ))],
         ),
         run_config=RunConfig(max_llm_calls=MAX_TURNS),
     )
@@ -174,23 +196,28 @@ def run_llm(case: Case, renovation_by: str | None = None) -> Case:
     return result
 
 
-def run(case: Case, renovation_by: str | None = None) -> tuple[Case, bool]:
+def run(
+    case: Case,
+    renovation_by: str | None = None,
+    applicant_type: str = "household",
+) -> tuple[Case, bool]:
     """
     DEMO_MODE=true -> run_scripted；否則嘗試 run_llm，失敗（沒 API key、
     網路異常、模型行為異常）時降級到 run_scripted，不讓整條流程中斷
     （AGENTS.md：每個 AI 任務都要有失敗時的 fixture 降級路徑）。
 
     renovation_by：續答裝潢廢料追問時帶入，見 run_scripted/run_llm 的說明。
+    applicant_type：申請人身份，見 run_scripted/run_llm 的說明。
     回傳 (case, used_ai)，used_ai 標示這次是不是真的跑了 run_llm。
     """
     if config.DEMO_MODE:
-        return run_scripted(case, renovation_by=renovation_by), False
+        return run_scripted(case, renovation_by=renovation_by, applicant_type=applicant_type), False
 
     try:
-        return run_llm(case, renovation_by=renovation_by), True
+        return run_llm(case, renovation_by=renovation_by, applicant_type=applicant_type), True
     except Exception:
         log.exception("run_llm 失敗，降級到 run_scripted")
-        return run_scripted(case, renovation_by=renovation_by), False
+        return run_scripted(case, renovation_by=renovation_by, applicant_type=applicant_type), False
 
 
 def summarize(trace: list[TraceStep], results: dict) -> str:
@@ -253,7 +280,11 @@ def _photo_analysis_step(case: Case) -> TraceStep:
     return TraceStep(icon="🔍", action="分析照片…", detail=f"辨識：{summary}")
 
 
-def _case_summary_text(case: Case, renovation_by: str | None = None) -> str:
+def _case_summary_text(
+    case: Case,
+    renovation_by: str | None = None,
+    applicant_type: str = "household",
+) -> str:
     items_text = "、".join(f"{item.name}×{item.quantity}" for item in case.items)
     extra = (
         f"\n民眾已回答裝潢廢料來源追問：renovation_by={renovation_by}"
@@ -263,6 +294,8 @@ def _case_summary_text(case: Case, renovation_by: str | None = None) -> str:
     )
     return (
         f"新案件 {case.id}，地點：{case.location.district}（{case.location.address}）。\n"
-        f"申報品項：{items_text}。{extra}\n"
+        f"申報品項：{items_text}。申請人身份：applicant_type={applicant_type}"
+        "（呼叫 check_eligibility 時請帶上這個值）。"
+        f"{extra}\n"
         "請依你的工作原則處理這件案子，決定要呼叫哪些工具。"
     )

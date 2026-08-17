@@ -180,6 +180,24 @@ def _build_case_message(case: Case) -> Message:
     return Message(role="agent", blocks=blocks)
 
 
+@app.get("/api/applicant-types", response_model=ApiResponse)
+def get_applicant_types():
+    """
+    申請人身份選項清單，民眾端送件畫面用來渲染點選按鈕（spec.md §6.2
+    服務對象限一般家庭及住戶）。選項由後端提供、單一來源
+    data.rules.EXCLUDED_APPLICANTS，前端不要自己寫死這份清單，
+    以後規則表改了兩邊才不會兜不起來。
+    """
+    try:
+        options = [{"label": "一般家庭及住戶", "value": "household"}] + [
+            {"label": label, "value": code} for code, label in rules.EXCLUDED_APPLICANTS.items()
+        ]
+        return ApiResponse(data={"options": options})
+    except Exception as e:
+        log.exception("get_applicant_types failed")
+        return ApiResponse(ok=False, error=str(e))
+
+
 @app.get("/api/schedule", response_model=ApiResponse)
 def get_schedule():
     """班長儀表板：所有班次 + needs_review 待審佇列。"""
@@ -206,7 +224,9 @@ def submit_case(request: Request, req: SubmitCaseRequest):
             if case is None:
                 return ApiResponse(ok=False, error=f"找不到案件：{req.case_id}")
             renovation_by = req.answers.get("decoration_source")
-            case, _used_ai = agent.run(case, renovation_by=renovation_by)
+            case, _used_ai = agent.run(
+                case, renovation_by=renovation_by, applicant_type=req.applicant_type
+            )
         else:
             if req.image_base64:
                 items = classify.classify_photo(req.image_base64)
@@ -227,7 +247,7 @@ def submit_case(request: Request, req: SubmitCaseRequest):
                 )
 
             new_case = Case(id=store.next_case_id(), location=location, items=items, note=req.note)
-            case, _used_ai = agent.run(new_case)
+            case, _used_ai = agent.run(new_case, applicant_type=req.applicant_type)
 
         message = _build_case_message(case)
         return ApiResponse(data=SubmitCaseResponse(message=message, case=case))

@@ -62,6 +62,29 @@
 
 ---
 
+## GET /api/applicant-types
+
+申請人身份選項清單，`POST /api/cases` 的 `applicant_type` 欄位要用。
+選項由後端提供（單一來源 `data.rules.EXCLUDED_APPLICANTS`），前端不要
+自己寫死這份清單，規則表改了兩邊才不會兜不起來。
+
+**Response `data`**
+
+```json
+{
+  "options": [
+    { "label": "一般家庭及住戶", "value": "household" },
+    { "label": "住家兼營商業", "value": "commercial_household" },
+    { "label": "機構", "value": "institution" },
+    { "label": "學校", "value": "school" },
+    { "label": "部隊", "value": "military" },
+    { "label": "法人", "value": "corporate" }
+  ]
+}
+```
+
+---
+
 ## POST /api/cases
 
 民眾送件，走完整 agent 流程（`ai/agent.run()`）。
@@ -75,6 +98,7 @@
 | location | `Location` \| null | 否 | 有值就用；沒有時退回「geocoding 暫時實作」（行政區關鍵字比對 + 該區駐地座標），⚠️ 準確度不足，Demo 前應強制前端提供 |
 | note | string \| null | 否 | 補充說明；沒有 `image_base64` 時，也會拿這欄位跑「文字比對」抓品項名稱（⚠️ 暫時實作，準確度遠不如照片辨識） |
 | answers | object | 否 | 續答用，目前唯一用得到的 key 是 `decoration_source`，值是 `"self"` 或 `"contractor"` |
+| applicant_type | string | 否 | 申請人身份，選項見 `GET /api/applicant-types`。預設 `"household"`——這是「前端沒送這欄位時」的備援值，不是強制值，前端應該讓民眾實際點選後再送出 |
 
 **`Location`**：`{ address, district, lat, lng }`
 

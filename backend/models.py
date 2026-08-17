@@ -288,6 +288,11 @@ class SubmitCaseRequest(BaseModel):
     location: Location | None = None
     note: str | None = None
     answers: dict[str, str] = {}  # 對 agent 追問的回覆，例如 {"decoration_source": "self"}
+    # 申請人身份（spec.md §6.2 服務對象限一般家庭及住戶）。跟 answers 不同，
+    # 這是判定資格「之前」就要知道的輸入，不是 agent 反應式追問出來的；
+    # 預設值只是前端沒送這欄位時的備援，不是強制值。選項清單見
+    # GET /api/applicant-types（data.rules.EXCLUDED_APPLICANTS）。
+    applicant_type: str = "household"
 
 
 class SubmitCaseResponse(BaseModel):
