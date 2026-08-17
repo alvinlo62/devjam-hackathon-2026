@@ -1,0 +1,546 @@
+{
+  "_comment": "Demo 劇本用預載案件，非隨機測資。每筆案件的用途見 _design。刻意設計，勿隨意增刪。",
+  "_design": {
+    "含冷媒設備演示": [
+      "C04（信義區電冰箱）",
+      "C14（大安區冷氣機）",
+      "C23（松山區電冰箱）"
+    ],
+    "資源建議「2人搬運」演示": [
+      "C13（大安區彈簧床墊）"
+    ],
+    "位置偏遠演示": [
+      "C06（信義區腳踏車，遠離其他案件）",
+      "C24（松山區沙發，遠離其他案件）"
+    ],
+    "裝潢廢料 needs_review + agent 追問演示": [
+      "C22（松山區木板，不進任何班次，進待審佇列）"
+    ],
+    "3只門檻演示": [
+      "C18（大安區廢行李箱×3，達門檻可收）"
+    ],
+    "信義區今日超載演示": "xinyi-today 起始載重 15.0/16.0 = 93.75%，現場再送一件彈簧床墊（volume_units=3.0）會推到 112.50%，觸發超載 → agent 改查明日班次"
+  },
+  "shifts": [
+    {
+      "shift_id": "xinyi-today",
+      "district": "信義區",
+      "day": "today",
+      "date": "2026-08-17",
+      "capacity_units": 16.0
+    },
+    {
+      "shift_id": "xinyi-tomorrow",
+      "district": "信義區",
+      "day": "tomorrow",
+      "date": "2026-08-18",
+      "capacity_units": 16.0
+    },
+    {
+      "shift_id": "daan-today",
+      "district": "大安區",
+      "day": "today",
+      "date": "2026-08-17",
+      "capacity_units": 14.0
+    },
+    {
+      "shift_id": "daan-tomorrow",
+      "district": "大安區",
+      "day": "tomorrow",
+      "date": "2026-08-18",
+      "capacity_units": 14.0
+    },
+    {
+      "shift_id": "songshan-today",
+      "district": "松山區",
+      "day": "today",
+      "date": "2026-08-17",
+      "capacity_units": 12.0
+    },
+    {
+      "shift_id": "songshan-tomorrow",
+      "district": "松山區",
+      "day": "tomorrow",
+      "date": "2026-08-18",
+      "capacity_units": 12.0
+    }
+  ],
+  "cases": [
+    {
+      "id": "C01",
+      "shift_id": "xinyi-today",
+      "location": {
+        "address": "信義區松仁路1號",
+        "district": "信義區",
+        "lat": 25.0373,
+        "lng": 121.5798
+      },
+      "items": [
+        {
+          "name": "沙發",
+          "category": "廢棄家具",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "C02",
+      "shift_id": "xinyi-today",
+      "location": {
+        "address": "信義區松仁路2號",
+        "district": "信義區",
+        "lat": 25.0378,
+        "lng": 121.5778
+      },
+      "items": [
+        {
+          "name": "電視機",
+          "category": "家電用品",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "C03",
+      "shift_id": "xinyi-today",
+      "location": {
+        "address": "信義區松仁路3號",
+        "district": "信義區",
+        "lat": 25.0353,
+        "lng": 121.58
+      },
+      "items": [
+        {
+          "name": "洗衣機",
+          "category": "家電用品",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "C04",
+      "shift_id": "xinyi-today",
+      "location": {
+        "address": "信義區松仁路4號",
+        "district": "信義區",
+        "lat": 25.0383,
+        "lng": 121.5788
+      },
+      "items": [
+        {
+          "name": "電冰箱",
+          "category": "家電用品",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "C05",
+      "shift_id": "xinyi-today",
+      "location": {
+        "address": "信義區松仁路5號",
+        "district": "信義區",
+        "lat": 25.0348,
+        "lng": 121.578
+      },
+      "items": [
+        {
+          "name": "桌椅",
+          "category": "廢棄家具",
+          "quantity": 2
+        }
+      ]
+    },
+    {
+      "id": "C06",
+      "shift_id": "xinyi-today",
+      "location": {
+        "address": "信義區松仁路6號",
+        "district": "信義區",
+        "lat": 25.0663,
+        "lng": 121.6088
+      },
+      "items": [
+        {
+          "name": "腳踏車",
+          "category": "廢棄家具",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "C07",
+      "shift_id": "xinyi-today",
+      "location": {
+        "address": "信義區松仁路7號",
+        "district": "信義區",
+        "lat": 25.0371,
+        "lng": 121.5806
+      },
+      "items": [
+        {
+          "name": "電風扇",
+          "category": "廢棄家具",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "C08",
+      "shift_id": "xinyi-today",
+      "location": {
+        "address": "信義區松仁路8號",
+        "district": "信義區",
+        "lat": 25.0351,
+        "lng": 121.5794
+      },
+      "items": [
+        {
+          "name": "立燈",
+          "category": "家電用品",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "C09",
+      "shift_id": "xinyi-tomorrow",
+      "location": {
+        "address": "信義區松仁路9號",
+        "district": "信義區",
+        "lat": 25.0373,
+        "lng": 121.5798
+      },
+      "items": [
+        {
+          "name": "沙發",
+          "category": "廢棄家具",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "C10",
+      "shift_id": "xinyi-tomorrow",
+      "location": {
+        "address": "信義區松仁路10號",
+        "district": "信義區",
+        "lat": 25.0353,
+        "lng": 121.5803
+      },
+      "items": [
+        {
+          "name": "電視機",
+          "category": "家電用品",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "C11",
+      "shift_id": "xinyi-tomorrow",
+      "location": {
+        "address": "信義區松仁路11號",
+        "district": "信義區",
+        "lat": 25.0375,
+        "lng": 121.5778
+      },
+      "items": [
+        {
+          "name": "腳踏車",
+          "category": "廢棄家具",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "C12",
+      "shift_id": "xinyi-tomorrow",
+      "location": {
+        "address": "信義區松仁路12號",
+        "district": "信義區",
+        "lat": 25.0355,
+        "lng": 121.5776
+      },
+      "items": [
+        {
+          "name": "立燈",
+          "category": "家電用品",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "C13",
+      "shift_id": "daan-today",
+      "location": {
+        "address": "大安區通化街13號",
+        "district": "大安區",
+        "lat": 25.0297,
+        "lng": 121.5548
+      },
+      "items": [
+        {
+          "name": "彈簧床墊",
+          "category": "廢棄家具",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "C14",
+      "shift_id": "daan-today",
+      "location": {
+        "address": "大安區通化街14號",
+        "district": "大安區",
+        "lat": 25.0275,
+        "lng": 121.5547
+      },
+      "items": [
+        {
+          "name": "冷氣機",
+          "category": "家電用品",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "C15",
+      "shift_id": "daan-today",
+      "location": {
+        "address": "大安區通化街15號",
+        "district": "大安區",
+        "lat": 25.0296,
+        "lng": 121.5527
+      },
+      "items": [
+        {
+          "name": "電風扇",
+          "category": "廢棄家具",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "C16",
+      "shift_id": "daan-today",
+      "location": {
+        "address": "大安區通化街16號",
+        "district": "大安區",
+        "lat": 25.028,
+        "lng": 121.5551
+      },
+      "items": [
+        {
+          "name": "桌椅",
+          "category": "廢棄家具",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "C17",
+      "shift_id": "daan-today",
+      "location": {
+        "address": "大安區通化街17號",
+        "district": "大安區",
+        "lat": 25.0298,
+        "lng": 121.5545
+      },
+      "items": [
+        {
+          "name": "手推車",
+          "category": "廢棄家具",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "C18",
+      "shift_id": "daan-today",
+      "location": {
+        "address": "大安區通化街18號",
+        "district": "大安區",
+        "lat": 25.0274,
+        "lng": 121.5529
+      },
+      "items": [
+        {
+          "name": "廢行李箱",
+          "category": "其他",
+          "quantity": 3
+        }
+      ]
+    },
+    {
+      "id": "C19",
+      "shift_id": "daan-tomorrow",
+      "location": {
+        "address": "大安區通化街19號",
+        "district": "大安區",
+        "lat": 25.0297,
+        "lng": 121.5548
+      },
+      "items": [
+        {
+          "name": "電視機",
+          "category": "家電用品",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "C20",
+      "shift_id": "daan-tomorrow",
+      "location": {
+        "address": "大安區通化街20號",
+        "district": "大安區",
+        "lat": 25.0278,
+        "lng": 121.5546
+      },
+      "items": [
+        {
+          "name": "電風扇",
+          "category": "廢棄家具",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "C21",
+      "shift_id": "daan-tomorrow",
+      "location": {
+        "address": "大安區通化街21號",
+        "district": "大安區",
+        "lat": 25.0294,
+        "lng": 121.5528
+      },
+      "items": [
+        {
+          "name": "落地燈",
+          "category": "家電用品",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "C22",
+      "shift_id": "songshan-today",
+      "location": {
+        "address": "松山區民生東路五段22號",
+        "district": "松山區",
+        "lat": 25.059,
+        "lng": 121.5548
+      },
+      "items": [
+        {
+          "name": "木板",
+          "category": "疑似裝潢廢料",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "C23",
+      "shift_id": "songshan-today",
+      "location": {
+        "address": "松山區民生東路五段23號",
+        "district": "松山區",
+        "lat": 25.057,
+        "lng": 121.5545
+      },
+      "items": [
+        {
+          "name": "電冰箱",
+          "category": "家電用品",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "C24",
+      "shift_id": "songshan-today",
+      "location": {
+        "address": "松山區民生東路五段24號",
+        "district": "松山區",
+        "lat": 25.0881,
+        "lng": 121.5287
+      },
+      "items": [
+        {
+          "name": "沙發",
+          "category": "廢棄家具",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "C25",
+      "shift_id": "songshan-today",
+      "location": {
+        "address": "松山區民生東路五段25號",
+        "district": "松山區",
+        "lat": 25.0589,
+        "lng": 121.5528
+      },
+      "items": [
+        {
+          "name": "電風扇",
+          "category": "廢棄家具",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "C26",
+      "shift_id": "songshan-today",
+      "location": {
+        "address": "松山區民生東路五段26號",
+        "district": "松山區",
+        "lat": 25.0574,
+        "lng": 121.5543
+      },
+      "items": [
+        {
+          "name": "立燈",
+          "category": "家電用品",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "C27",
+      "shift_id": "songshan-tomorrow",
+      "location": {
+        "address": "松山區民生東路五段27號",
+        "district": "松山區",
+        "lat": 25.0591,
+        "lng": 121.5547
+      },
+      "items": [
+        {
+          "name": "桌椅",
+          "category": "廢棄家具",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "C28",
+      "shift_id": "songshan-tomorrow",
+      "location": {
+        "address": "松山區民生東路五段28號",
+        "district": "松山區",
+        "lat": 25.0571,
+        "lng": 121.5527
+      },
+      "items": [
+        {
+          "name": "手推車",
+          "category": "廢棄家具",
+          "quantity": 1
+        }
+      ]
+    }
+  ]
+}
