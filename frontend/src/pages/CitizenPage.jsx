@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { api, fileToBase64 } from '../api/client.js'
 import MessageBlock from '../components/MessageBlock.jsx'
+import { DEMO_CASES } from '../lib/demoCases.js'
+import { extractDistrict, loadGooglePlaces } from '../lib/googleMaps.js'
 
 // 目前只有這三個行政區有真的班次資料（fixtures/demo_cases.json）。
 const DISTRICTS = ['信義區', '大安區', '松山區']
@@ -8,6 +10,13 @@ const DISTRICTS = ['信義區', '大安區', '松山區']
 // pickup 輪詢間隔。案件進入終態（completed/rejected）就停止輪詢。
 const POLL_INTERVAL_MS = 5000
 const TERMINAL_STATUSES = new Set(['completed', 'rejected'])
+
+// 案件資料本身在後端 data/store.py 就有（記憶體 store，伺服器活著就在），
+// 真正會不見的是前端「記得剛剛在追蹤哪個案件」這件事——切到 /dashboard
+// 讓 CitizenPage 卸載，caseId 這些 React state 就沒了。存最近一次送出
+// 的 case id，回到這頁時用既有的 GET /api/cases/{id} 撈回狀態，
+// 不需要新的後端端點或資料庫。
+const STORAGE_KEY = 'citytask_case_id'
 
 // 清運進度四步驟（對應 CaseStatus，deferred 視覺上等同 scheduled 那一格）。
 const PROGRESS_STEPS = [
@@ -22,14 +31,95 @@ function progressIndex(status) {
   return idx === -1 ? 0 : idx
 }
 
+// 上傳照片之後、正式送出之前，逐題問清楚身份/行政區/地址/清運日期，
+// 對應後端 SubmitCaseRequest 的 applicant_type / location / preferred_day
+// ——問完最後一題才真的呼叫一次 /api/cases，中間都是前端自己的狀態。
+const WIZARD_QUESTIONS = ['applicant', 'district', 'address', 'date']
+
+// weight_band 只是 light/medium/heavy 三級距，不是精確公斤數；這個對應
+// 表是前端自己給的參考區間，跟 backend/data/rules.py 的常識推估屬於
+// 同一等級的「系統參考值」，不是官方秤重數據。
+const WEIGHT_BAND_LABEL = { light: '10–30 kg', medium: '30–60 kg', heavy: '60–100 kg' }
+
+// 地址步驟用真的 Google Places Autocomplete，不是純視覺樣式——選定地點後
+// 直接帶出 formatted_address + 真實經緯度，取代原本用文字關鍵字猜行政區
+// 的暫時做法。
+function AddressStep({ district, onConfirm }) {
+  const inputRef = useRef(null)
+  const [status, setStatus] = useState('loading') // loading | ready | error
+  const [errorMsg, setErrorMsg] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    let autocomplete
+
+    loadGooglePlaces()
+      .then((places) => {
+        if (cancelled || !inputRef.current) return
+        autocomplete = new places.Autocomplete(inputRef.current, {
+          fields: ['formatted_address', 'geometry', 'address_components'],
+          componentRestrictions: { country: 'tw' },
+        })
+        autocomplete.addListener('place_changed', () => {
+          const place = autocomplete.getPlace()
+          if (!place.geometry) return
+          onConfirm({
+            address: place.formatted_address,
+            district: extractDistrict(place) ?? district,
+            lat: place.geometry.location.lat(),
+            lng: place.geometry.location.lng(),
+          })
+        })
+        setStatus('ready')
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setStatus('error')
+          setErrorMsg(err.message)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [district])
+
+  return (
+    <div className="choices-block">
+      <h2>請輸入清運地址（{district}）</h2>
+      <input
+        ref={inputRef}
+        type="text"
+        className="address-input"
+        placeholder={status === 'ready' ? '輸入地址，從建議清單中選取' : '地圖載入中…'}
+        disabled={status !== 'ready'}
+      />
+      {status === 'error' && <p className="error-banner">{errorMsg}</p>}
+      <p className="field__hint">從下拉建議清單選取地址後會自動進入下一步</p>
+    </div>
+  )
+}
+
 export default function CitizenPage() {
   const [applicantOptions, setApplicantOptions] = useState([])
-  const [applicantType, setApplicantType] = useState('household')
-  const [district, setDistrict] = useState(DISTRICTS[0])
-  const [address, setAddress] = useState('')
-  const [note, setNote] = useState('')
+  const [shifts, setShifts] = useState([])
   const [photoFile, setPhotoFile] = useState(null)
   const [photoPreview, setPhotoPreview] = useState(null)
+  const [analyzedItems, setAnalyzedItems] = useState(null) // POST /api/photo/classify 的結果
+  const [analyzing, setAnalyzing] = useState(false)
+  const [analyzeError, setAnalyzeError] = useState(null)
+
+  // wizardStep：null＝不在問答流程；0~3＝目前問到第幾題（WIZARD_QUESTIONS
+  // 索引）；'confirm'＝四題答完了，等民眾看過摘要再按「建立清運案件」，
+  // 不是答完最後一題就直接送出。
+  const [wizardStep, setWizardStep] = useState(null)
+  const [wizardAnswers, setWizardAnswers] = useState({
+    applicant_type: 'household',
+    district: null,
+    location: null,
+    preferred_day: null,
+    preferred_date_label: null, // 給確認畫面顯示的真實日期文字，例如 "2026-08-19"
+  })
 
   const [messages, setMessages] = useState([])
   const [caseId, setCaseId] = useState(null)
@@ -44,6 +134,30 @@ export default function CitizenPage() {
       .applicantTypes()
       .then((data) => setApplicantOptions(data.options ?? []))
       .catch(() => setApplicantOptions([{ label: '一般家庭及住戶', value: 'household' }]))
+    // 清運日期那一題要秀真的日期跟真的載重%，不是編出來的日曆。
+    api
+      .schedule()
+      .then((data) => setShifts(data.shifts ?? []))
+      .catch(() => {})
+  }, [])
+
+  // 回到這頁時，如果先前有送出過案件，把畫面恢復成查看結果的狀態
+  // （跳過表單/問答），而不是每次都從頭開始。查不到（例如伺服器重
+  // 開過，記憶體 store 清空了）就當作沒這回事，留在正常的送件表單。
+  useEffect(() => {
+    const savedId = localStorage.getItem(STORAGE_KEY)
+    if (!savedId) return
+    api
+      .getCase(savedId)
+      .then((data) => {
+        setCaseId(data.case.id)
+        setCaseStatus(data.case.status)
+        setPickup(data.pickup)
+        setStarted(true)
+        setWizardStep(null)
+        setMessages([{ role: 'agent', blocks: [{ type: 'result', case: data.case }] }])
+      })
+      .catch(() => localStorage.removeItem(STORAGE_KEY))
   }, [])
 
   // 送出後同一頁面輪詢進度（已送出/已排程/清運中/已完成），不用另外開查詢頁。
@@ -65,39 +179,61 @@ export default function CitizenPage() {
     return () => clearInterval(pollRef.current)
   }, [caseId, caseStatus])
 
-  function handlePhotoChange(e) {
+  // 選完照片就先辨識（不是等民眾答完四題才辨識），這樣「確認資料」
+  // 最後的摘要頁才有真的物品資訊可以顯示；辨識結果直接帶進最終送出的
+  // /api/cases 呼叫（見 submitFinal），同一張照片不會被辨識兩次。
+  async function handlePhotoChange(e) {
     const file = e.target.files?.[0]
     if (!file) return
     setPhotoFile(file)
     setPhotoPreview(URL.createObjectURL(file))
+    setStarted(true)
+    setWizardStep(0)
+    setErrorMsg(null)
+    setAnalyzedItems(null)
+    setAnalyzeError(null)
+    setAnalyzing(true)
+    try {
+      const image_base64 = await fileToBase64(file)
+      const data = await api.classifyPhoto({ image_base64 })
+      setAnalyzedItems(data.items)
+    } catch (err) {
+      setAnalyzeError(err.message)
+    } finally {
+      setAnalyzing(false)
+    }
   }
 
-  function appendAgentMessage(message, resultCase) {
+  function appendAgentMessage(message, resultCase, persist = true) {
     setMessages((prev) => [...prev, message])
     if (resultCase) {
       setCaseId(resultCase.id)
       setCaseStatus(resultCase.status)
+      // 示範案例（persist=false）是純前端假資料，這個 id 在後端查不到，
+      // 存了只會在下次載入時被 404 清掉，乾脆不存。
+      if (persist) localStorage.setItem(STORAGE_KEY, resultCase.id)
     }
   }
 
-  async function handleSubmit() {
-    if (!photoFile) {
-      setErrorMsg('請先上傳物品照片')
-      return
-    }
+  async function submitFinal(file, answers) {
     setSubmitting(true)
     setErrorMsg(null)
     try {
-      const image_base64 = await fileToBase64(photoFile)
-      // ⚠️ 暫時實作：目前沒有真的 geocoding，把行政區名稱放進 note 開頭，
-      // 讓後端的關鍵字比對能找到（見 docs/api.md POST /api/cases 的說明）。
-      const composedNote = [district, address, note].filter(Boolean).join('，')
-      const data = await api.submitCase({
-        image_base64,
-        note: composedNote,
-        applicant_type: applicantType,
-      })
-      setStarted(true)
+      // 已經有 handlePhotoChange 辨識好的結果就直接帶過去，不用再送一次
+      // 照片、再辨識一次；辨識失敗或還沒辨識完（極端情況）才退回原本
+      // 「帶照片給後端自己辨識」的路徑。
+      const payload = {
+        applicant_type: answers.applicant_type,
+        location: answers.location,
+        preferred_day: answers.preferred_day,
+      }
+      if (analyzedItems) {
+        payload.items = analyzedItems
+      } else {
+        payload.image_base64 = await fileToBase64(file)
+      }
+      const data = await api.submitCase(payload)
+      setWizardStep(null)
       appendAgentMessage(data.message, data.case)
     } catch (err) {
       setErrorMsg(err.message)
@@ -106,6 +242,32 @@ export default function CitizenPage() {
     }
   }
 
+  // 逐題作答：填完最後一題（清運日期）先進確認摘要畫面，不會直接送出，
+  // 讓民眾看過所有資訊、按下「建立清運案件」才真的打後端。
+  function answerWizard(key, value, extra = {}) {
+    const next = { ...wizardAnswers, [key]: value, ...extra }
+    setWizardAnswers(next)
+    const nextStep = wizardStep + 1
+    if (nextStep >= WIZARD_QUESTIONS.length) {
+      setWizardStep('confirm')
+    } else {
+      setWizardStep(nextStep)
+    }
+  }
+
+  // 回上一題改答案；不清掉 wizardAnswers，回去看到的還是原本選的值，
+  // 重新選才會覆蓋。第 0 題（申請人身份）沒有上一步——再上去是照片
+  // 上傳，那是另一個獨立動作，不是這個問答流程的一部分。
+  function goBackWizard() {
+    if (wizardStep === 'confirm') {
+      setWizardStep(WIZARD_QUESTIONS.length - 1)
+    } else if (typeof wizardStep === 'number' && wizardStep > 0) {
+      setWizardStep(wizardStep - 1)
+    }
+  }
+
+  // 續答「裝潢廢料來源」這類送出後才觸發的追問，跟上面的 wizard 是不同機制
+  // ——這是後端資格判定當下決定要問的，不是送件前的固定題目。
   async function handleChoice(value) {
     if (!caseId) return
     setSubmitting(true)
@@ -113,7 +275,7 @@ export default function CitizenPage() {
     try {
       const data = await api.submitCase({
         case_id: caseId,
-        applicant_type: applicantType,
+        applicant_type: wizardAnswers.applicant_type,
         answers: { decoration_source: value },
       })
       appendAgentMessage(data.message, data.case)
@@ -124,12 +286,32 @@ export default function CitizenPage() {
     }
   }
 
+  function handleDemoCase(demo) {
+    setErrorMsg(null)
+    setPhotoPreview(demo.src)
+    setStarted(true)
+    setWizardStep(null) // 示範案例純前端假資料，跳過整個問答流程
+    const reasons = demo.case.eligibility?.reasons ?? []
+    appendAgentMessage(
+      {
+        role: 'agent',
+        blocks: [
+          { type: 'text', content: reasons.join('\n') },
+          { type: 'result', case: demo.case },
+        ],
+      },
+      demo.case,
+      false,
+    )
+  }
+
   const lastMessage = messages[messages.length - 1]
   const awaitingChoice = lastMessage?.blocks?.some((b) => b.type === 'choices')
+  const inWizard = wizardStep !== null
 
-  // 步驟指示器只是把既有狀態換一種呈現方式，不是新的流程狀態機：
-  // 1 上傳照片＝還沒送出，2 確認資料＝agent 還在追問，3 查看結果＝已有結果可看。
-  const step = !started ? 1 : awaitingChoice ? 2 : 3
+  // 步驟指示器：1 上傳照片＝還沒選照片，2 確認資料＝問答中或還在等 agent
+  // 追問，3 查看結果＝已經有最終結果可看。
+  const step = !started ? 1 : inWizard || awaitingChoice ? 2 : 3
 
   const lastResultCase = [...messages]
     .reverse()
@@ -137,6 +319,10 @@ export default function CitizenPage() {
     .find((b) => b.type === 'result')?.case
 
   const progressIdx = caseStatus ? progressIndex(caseStatus) : -1
+
+  const districtShifts = shifts
+    .filter((s) => s.district === wizardAnswers.district)
+    .sort((a, b) => a.date.localeCompare(b.date))
 
   return (
     <div className="app-root">
@@ -203,13 +389,13 @@ export default function CitizenPage() {
                 <div className="stage-body">
                   <div className="block-stack">
                     <div className="text-block text-block--info">
-                      請上傳一張包含完整物品的照片。系統會辨識物品內容，並依收運規則逐項確認。
+                      請上傳一張包含完整物品的照片。系統會辨識物品內容，接著逐項確認身份、地址與清運日期。
                     </div>
 
                     <label className="upload-target" htmlFor="photo-input">
                       <span className="upload-icon">📷</span>
                       <span className="upload-copy">
-                        <strong>{photoFile ? photoFile.name : '拍照／上傳物品照片'}</strong>
+                        <strong>拍照／上傳物品照片</strong>
                         <small>支援手機相機或相簿照片</small>
                       </span>
                       <span className="upload-arrow">→</span>
@@ -225,58 +411,31 @@ export default function CitizenPage() {
                 </div>
               </section>
 
-              <div className="supplement-panel">
-                <div className="field">
-                  <label>申請人身份</label>
-                  <div className="choice-row">
-                    {applicantOptions.map((opt) => (
-                      <button
-                        key={opt.value}
-                        className={`pill-btn${applicantType === opt.value ? ' pill-btn--active' : ''}`}
-                        onClick={() => setApplicantType(opt.value)}
-                        type="button"
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
+              <section className="demo-cases" aria-labelledby="demo-cases-title">
+                <div className="section-heading">
+                  <h2 id="demo-cases-title">示範案例</h2>
+                  <span className="fixture-note">展示模式</span>
                 </div>
-
-                <div className="field">
-                  <label>行政區</label>
-                  <div className="choice-row">
-                    {DISTRICTS.map((d) => (
-                      <button
-                        key={d}
-                        className={`pill-btn${district === d ? ' pill-btn--active' : ''}`}
-                        onClick={() => setDistrict(d)}
-                        type="button"
-                      >
-                        {d}
-                      </button>
-                    ))}
-                  </div>
+                <p className="section-note">可直接選取以檢視完整判定流程，不用自己找照片。</p>
+                <div className="demo-grid">
+                  {DEMO_CASES.map((demo) => (
+                    <button
+                      key={demo.name}
+                      type="button"
+                      className="demo-card"
+                      onClick={() => handleDemoCase(demo)}
+                      disabled={submitting}
+                    >
+                      <img alt="" src={demo.src} />
+                      <span>
+                        <strong>{demo.name}</strong>
+                        <small>{demo.sub}</small>
+                      </span>
+                      <span className="demo-card__arrow">→</span>
+                    </button>
+                  ))}
                 </div>
-
-                <div className="field">
-                  <label>詳細地址（選填）</label>
-                  <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} />
-                </div>
-
-                <label htmlFor="note">
-                  補充說明 <span>選填</span>
-                </label>
-                <textarea id="note" value={note} onChange={(e) => setNote(e.target.value)} rows={3} />
-                <small>不填寫亦可完成送件流程</small>
-
-                {errorMsg && <p className="error-banner">{errorMsg}</p>}
-
-                <div style={{ marginTop: 14 }}>
-                  <button className="primary-button" onClick={handleSubmit} disabled={submitting}>
-                    {submitting ? '送出中…' : '送出申請'}
-                  </button>
-                </div>
-              </div>
+              </section>
             </>
           )}
 
@@ -291,11 +450,164 @@ export default function CitizenPage() {
               </div>
               <div className="stage-body">
                 <div className="block-stack">
-                  {messages.flatMap((msg, i) =>
-                    msg.blocks.map((block, j) => (
-                      <MessageBlock key={`${i}-${j}`} block={block} disabled={submitting} onChoice={handleChoice} />
-                    )),
+                  {inWizard && wizardStep !== 0 && (
+                    <button type="button" className="wizard-back" onClick={goBackWizard}>
+                      ← 上一步
+                    </button>
                   )}
+                  {wizardStep === 0 && (
+                    <div className="choices-block">
+                      <h2>這批物品是由哪一類申請者處理？</h2>
+                      <div className="choice-list">
+                        {applicantOptions.map((opt) => (
+                          <button
+                            key={opt.value}
+                            className="choice-button"
+                            onClick={() => answerWizard('applicant_type', opt.value)}
+                          >
+                            <span className="choice-button__body">
+                              <strong>{opt.label}</strong>
+                            </span>
+                            <span className="choice-button__arrow">→</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {wizardStep === 1 && (
+                    <div className="choices-block">
+                      <h2>請選擇物品所在行政區</h2>
+                      <div className="choice-list">
+                        {DISTRICTS.map((d) => (
+                          <button key={d} className="choice-button" onClick={() => answerWizard('district', d)}>
+                            <span className="choice-button__body">
+                              <strong>{d}</strong>
+                            </span>
+                            <span className="choice-button__arrow">→</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {wizardStep === 2 && (
+                    <AddressStep
+                      district={wizardAnswers.district}
+                      onConfirm={(location) => answerWizard('location', location)}
+                    />
+                  )}
+
+                  {wizardStep === 3 && (
+                    <div className="choices-block">
+                      <h2>請選擇預計清運日期（週日不收運）</h2>
+                      <div className="choice-list">
+                        {districtShifts.map((s, i) => (
+                          <button
+                            key={s.id}
+                            className="choice-button"
+                            onClick={() =>
+                              answerWizard('preferred_day', i === 0 ? 'today' : 'tomorrow', {
+                                preferred_date_label: s.date,
+                              })
+                            }
+                          >
+                            <span className="choice-button__body">
+                              <strong>{s.date}</strong>
+                              <small>目前載重 {Math.round(s.load_ratio * 100)}%</small>
+                            </span>
+                            <span className="choice-button__arrow">→</span>
+                          </button>
+                        ))}
+                      </div>
+                      {districtShifts.length === 0 && (
+                        <p className="block-text block-text--muted">查無班次資料，將由清潔隊另行安排。</p>
+                      )}
+                    </div>
+                  )}
+
+                  {wizardStep === 'confirm' && (
+                    <div className="choices-block">
+                      <h2>請確認以下資訊</h2>
+
+                      <h3 className="confirm-summary__label">照片觀察</h3>
+                      {analyzing && <p className="block-text block-text--muted">辨識中…</p>}
+                      {analyzeError && <p className="error-banner">{analyzeError}（送出時將重新嘗試辨識）</p>}
+                      {analyzedItems && analyzedItems.length > 0 && (
+                        <>
+                          <div className="observation-grid">
+                            {analyzedItems
+                              .flatMap((item, i) => [
+                                <span key={`${i}-name`}>
+                                  {item.name} × {item.quantity}
+                                </span>,
+                                item.attributes?.max_dimension_cm && (
+                                  <span key={`${i}-dim`}>長度約 {item.attributes.max_dimension_cm} cm</span>
+                                ),
+                                item.attributes?.material && <span key={`${i}-mat`}>材質：{item.attributes.material}</span>,
+                                item.attributes?.weight_band && (
+                                  <span key={`${i}-wb`}>重量級距：{WEIGHT_BAND_LABEL[item.attributes.weight_band]}</span>
+                                ),
+                                item.attributes && (
+                                  <span key={`${i}-dis`}>{item.attributes.dismantlable ? '可拆解' : '不可拆解'}</span>
+                                ),
+                              ])
+                              .filter(Boolean)}
+                          </div>
+                          <p className="confidence">
+                            影像辨識信心度{' '}
+                            {Math.round(
+                              (analyzedItems.reduce((sum, i) => sum + (i.confidence ?? 1), 0) / analyzedItems.length) *
+                                100,
+                            )}
+                            %
+                          </p>
+                        </>
+                      )}
+
+                      <h3 className="confirm-summary__label">送件資訊</h3>
+                      <dl className="confirm-summary">
+                        <div>
+                          <dt>申請人身份</dt>
+                          <dd>
+                            {applicantOptions.find((o) => o.value === wizardAnswers.applicant_type)?.label ??
+                              wizardAnswers.applicant_type}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>行政區</dt>
+                          <dd>{wizardAnswers.district}</dd>
+                        </div>
+                        <div>
+                          <dt>地址</dt>
+                          <dd>{wizardAnswers.location?.address}</dd>
+                        </div>
+                        <div>
+                          <dt>清運日期</dt>
+                          <dd>{wizardAnswers.preferred_date_label}</dd>
+                        </div>
+                      </dl>
+                      <p className="field__hint">確認無誤後按下方按鈕建立案件，系統會立即進行資格判定。</p>
+                      {errorMsg && <p className="error-banner">{errorMsg}</p>}
+                      <div style={{ marginTop: 14 }}>
+                        <button
+                          className="primary-button"
+                          onClick={() => submitFinal(photoFile, wizardAnswers)}
+                          disabled={submitting}
+                        >
+                          {submitting ? '送出中…' : '建立清運案件'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {!inWizard &&
+                    messages.flatMap((msg, i) =>
+                      msg.blocks.map((block, j) => (
+                        <MessageBlock key={`${i}-${j}`} block={block} disabled={submitting} onChoice={handleChoice} />
+                      )),
+                    )}
+
                   {errorMsg && <p className="error-banner">{errorMsg}</p>}
                   {submitting && <div className="text-block">處理中…</div>}
                 </div>
@@ -303,7 +615,7 @@ export default function CitizenPage() {
             </section>
           )}
 
-          {started && progressIdx >= 0 && (
+          {started && !inWizard && progressIdx >= 0 && (
             <div className="progress-card">
               <ol className="progress-track">
                 {PROGRESS_STEPS.map((s, i) => (
@@ -324,7 +636,9 @@ export default function CitizenPage() {
               )}
             </div>
           )}
-          {started && caseStatus === 'rejected' && <p className="error-banner">本案件不符合收運資格。</p>}
+          {started && !inWizard && caseStatus === 'rejected' && (
+            <p className="error-banner">本案件不符合收運資格。</p>
+          )}
 
           <p className="citizen-footer">本服務提供大型廢棄物收運初步判定；實際資格與收運安排仍以清潔隊通知為準。</p>
         </section>

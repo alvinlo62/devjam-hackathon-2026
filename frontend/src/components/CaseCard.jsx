@@ -8,7 +8,9 @@ const STATUS_META = {
 }
 
 // 案件結果卡片。民眾端「查看結果」步驟用這個渲染 agent 的判定結果。
-export default function CaseCard({ case_, showTrace = true }) {
+// showTrace 預設 false：決策軌跡（超載改查明日這類細節）只在班長端顯示，
+// 民眾不需要、也不該看到內部判定過程，只看結果跟理由。
+export default function CaseCard({ case_, showTrace = false }) {
   if (!case_) return null
   const elig = case_.eligibility
   const meta = STATUS_META[elig?.status] ?? STATUS_META.eligible

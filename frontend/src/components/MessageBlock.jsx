@@ -1,5 +1,4 @@
 import CaseCard from './CaseCard.jsx'
-import TraceList from './TraceList.jsx'
 
 // 訊息流的最小渲染單位（spec.md §3.1, §5.3）。type 決定要看哪個欄位，
 // 跟 models.MessageBlock 的設計一致。視覺外殼對應 frontend/reference/民眾端.html
@@ -36,11 +35,9 @@ export default function MessageBlock({ block, onChoice, disabled }) {
       return <CaseCard case_={block.case} />
 
     case 'trace':
-      return (
-        <div className="block-stack">
-          <TraceList steps={block.trace} variant="decision" />
-        </div>
-      )
+      // spec.md：trace 是班長端專用的決策軌跡區塊，民眾端不渲染
+      // （models.BlockType 的說明本來就寫明這是「政府端專用」）。
+      return null
 
     default:
       return null

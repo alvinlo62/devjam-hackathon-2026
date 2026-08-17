@@ -22,9 +22,12 @@ export const api = {
   applicantTypes: () => request('/applicant-types'),
   schedule: () => request('/schedule'),
   submitCase: (payload) => request('/cases', { method: 'POST', body: JSON.stringify(payload) }),
+  classifyPhoto: (payload) => request('/photo/classify', { method: 'POST', body: JSON.stringify(payload) }),
   getCase: (caseId) => request(`/cases/${caseId}`),
   updateCaseStatus: (payload) =>
     request('/cases/status', { method: 'POST', body: JSON.stringify(payload) }),
+  reviewCase: (payload) =>
+    request('/cases/review', { method: 'POST', body: JSON.stringify(payload) }),
   proposeInsertion: (payload) =>
     request('/insertion/propose', { method: 'POST', body: JSON.stringify(payload) }),
   acceptInsertion: (payload) =>
