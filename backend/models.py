@@ -101,6 +101,20 @@ class WasteItem(BaseModel):
     attributes: ItemAttributes | None = None  # 辨識當下若資訊不足可能尚未算出
 
 
+class ItemEligibility(BaseModel):
+    """
+    單一品項的資格判定明細。
+
+    案件整體狀態（EligibilityResult.status）是取所有品項裡最嚴重者的彙整，
+    這個型別讓班長端能標示「第幾項有問題」，而不是只看到案件層級的單一狀態。
+    """
+    item_index: int  # 對應 Case.items 的索引
+    item_name: str
+    status: Eligibility
+    reasons: list[str] = []
+    rule_refs: list[str] = []
+
+
 class EligibilityResult(BaseModel):
     """
     資格判定結果，一律由 services/eligibility.py 產出（spec.md §5.1 環節 2）。
@@ -108,10 +122,13 @@ class EligibilityResult(BaseModel):
     reasons 與 rule_refs 讓判定「逐條可追溯」，畫面上可標註
     「初步判定，實際以清潔隊認定為準」（spec.md §10.2 風險對策）。
     """
-    status: Eligibility
-    reasons: list[str] = []
-    rule_refs: list[str] = []          # 對應的規則條文/門檻代號
+    status: Eligibility                 # 案件層級彙整（取所有品項最嚴重者）
+    reasons: list[str] = []             # 人話說明，可能會顯示給使用者看
+    # 內部除錯/測試追溯用，標出每條 reasons 對應哪個規則來源
+    # （data/rules.py 常數或本專案規格章節），不對外顯示。
+    rule_refs: list[str] = []
     clarification_needed: bool = False  # 是否需要 agent 向民眾追問（見 §6.3 裝潢廢料流程）
+    items: list[ItemEligibility] = []   # 逐品項判定明細
 
 
 class Case(BaseModel):
