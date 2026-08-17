@@ -1,14 +1,17 @@
 """
-大型廢棄物收運資格判定的規則表（純資料，無邏輯）。
+大型廢棄物收運規則表（純資料，無邏輯）：資格判定 + 品項屬性。
 
-來源分兩種，逐條標註：
+來源分三種，逐條標註：
 - ✅ 轉錄自 docs/spec.md §6.2（該文件標示「已確認，來源：臺北市環保局常見問答」）
 - 🔧 本專案為了讓 agent 能觸發追問/分類而設計的關鍵字啟發式，
   不是法規原文的窮舉，僅供 Demo 判斷用，之後應以官方公告校正
+- 📏 常識推估的物理屬性（重量、尺寸），非官方規範，僅供 Demo 呈現，
+  spec.md §7.1 明講這類數字沒有來源依據，畫面上只能當「系統參考值」
 
 ★ 未經查證的內容一律標 TODO，不得自行編造數值（尤其罰則金額，
   spec.md §6.4 已標示 ⚠️ 待查證，本檔案不引用）。
 """
+from models import WeightBand
 
 # ---------- ✅ 收運品項清單（spec.md §6.2）----------
 # 分類 -> 品項名稱清單。用於資格判定的「在清單內即 eligible」判斷。
@@ -70,6 +73,48 @@ RENOVATION_KEYWORDS: list[str] = [
     "木板", "角料", "木作", "系統櫃", "隔間板",
     "天花板板材", "裝潢廢料", "拆除廢料", "矽酸鈣板", "石膏板",
 ]
+
+# ---------- 📏 品項屬性對照表（spec.md §7.1）----------
+# 物品名 -> (重量級距, 最大尺寸cm, 可否拆解, 特殊處理, 容量單位[volume_units])
+#
+# ⚠️ 重量與尺寸為常識推估，非官方規範或實測數據，僅供 Demo 呈現用。
+# 「系統參考值」的定位見 spec.md §7.1：這是觀察（事實），不是主張（建議）；
+# 建議文字（人力配置等）由 services/attributes.py 的 resource_hint() 另外產生，
+# 不放在這張表裡。
+#
+# 冰箱、冷氣依 spec.md §7.2 標記 special_handling=True（含冷媒設備，需特殊處理）。
+ITEM_ATTRIBUTES: dict[str, tuple[WeightBand, float, bool, bool, float]] = {
+    # 廢棄家具
+    "彈簧床墊":     (WeightBand.HEAVY,  200.0, False, False, 3.0),
+    "床組":         (WeightBand.HEAVY,  200.0, True,  False, 3.5),
+    "手推車":       (WeightBand.MEDIUM, 100.0, False, False, 1.0),
+    "腳踏車":       (WeightBand.MEDIUM, 170.0, False, False, 1.2),
+    "電動腳踏車":   (WeightBand.HEAVY,  170.0, False, False, 1.5),
+    "微型電動二輪車": (WeightBand.MEDIUM, 120.0, False, False, 1.0),
+    "電風扇":       (WeightBand.LIGHT,  100.0, False, False, 0.5),
+    "沙發":         (WeightBand.HEAVY,  200.0, False, False, 4.0),
+    "桌椅":         (WeightBand.MEDIUM, 120.0, True,  False, 1.5),
+    "櫥櫃":         (WeightBand.HEAVY,  180.0, True,  False, 3.0),
+    # 家電用品
+    "抽油煙機":     (WeightBand.MEDIUM, 90.0,  False, False, 1.0),
+    "瓦斯爐":       (WeightBand.LIGHT,  70.0,  False, False, 0.5),
+    "大型飲水機":   (WeightBand.MEDIUM, 100.0, False, False, 1.0),
+    "電視機":       (WeightBand.MEDIUM, 140.0, False, False, 1.5),
+    "電冰箱":       (WeightBand.HEAVY,  180.0, False, True,  3.0),  # 含冷媒設備
+    "洗衣機":       (WeightBand.HEAVY,  90.0,  False, False, 1.5),
+    "冷氣機":       (WeightBand.MEDIUM, 90.0,  False, True,  1.5),  # 含冷媒設備
+    "立燈":         (WeightBand.LIGHT,  150.0, False, False, 0.3),
+    "落地燈":       (WeightBand.LIGHT,  150.0, False, False, 0.3),
+    # 其他
+    "樹枝":         (WeightBand.LIGHT,  200.0, True,  False, 1.0),
+    "廢行李箱":     (WeightBand.LIGHT,  80.0,  False, False, 0.4),
+}
+
+# 未知品項（不在上表）的預設值。中等重量、不可拆解、不特殊處理，
+# 讓判定退回保守估計，而不是讓程式直接出錯。
+DEFAULT_ITEM_ATTRIBUTES: tuple[WeightBand, float, bool, bool, float] = (
+    WeightBand.MEDIUM, 100.0, False, False, 1.0,
+)
 
 # ---------- 查證狀態 ----------
 # 已比對臺北市環保局公告原文，ACCEPTED_ITEMS / QUANTITY_THRESHOLDS /
