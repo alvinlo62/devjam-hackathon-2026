@@ -17,7 +17,7 @@ def annotate(item: WasteItem) -> ItemAttributes:
     # 別名對照跟 services/eligibility.py 用同一張表，兩邊對「這是同一種東西」
     # 要有一致的認知，例如「辦公椅」查屬性時也該當成「桌椅」查。
     canonical = rules.ITEM_ALIASES.get(item.name, item.name)
-    weight_band, max_dimension_cm, dismantlable, special_handling, volume_units = (
+    weight_band, max_dimension_cm, dismantlable, special_handling, volume_units, material = (
         rules.ITEM_ATTRIBUTES.get(canonical, rules.DEFAULT_ITEM_ATTRIBUTES)
     )
     return ItemAttributes(
@@ -26,6 +26,7 @@ def annotate(item: WasteItem) -> ItemAttributes:
         dismantlable=dismantlable,
         special_handling=special_handling,
         volume_units=volume_units,
+        material=material,
     )
 
 

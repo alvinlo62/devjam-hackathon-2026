@@ -98,6 +98,8 @@ class ItemAttributes(BaseModel):
     dismantlable: bool
     special_handling: bool  # 含冷媒等需特殊處理設備（spec.md §7.2）
     volume_units: float     # 用於載重加總（Shift.used_units）
+    material: str | None = None  # 常識推估的材質組成，跟 weight_band/
+    # max_dimension_cm 同一等級的「系統參考值」，非官方規範（見 data/rules.py）
 
 
 class WasteItem(BaseModel):
@@ -170,6 +172,16 @@ class Case(BaseModel):
     status: CaseStatus = CaseStatus.PENDING
     resource_hint: str | None = None  # AI 生成的資源建議白話文（例如建議配置人力）
     note: str | None = None           # 民眾補充說明或裁量備註
+    # 民眾指定的清運日偏好（"today" | "tomorrow"），送件當下就決定，
+    # 不是 agent 反應式追問出來的，跟 applicant_type 同一類輸入。
+    # agent 會優先試這一天，該天班次滿了才改排另一天並告知民眾
+    # （見 ai/agent.py run_scripted 的查詢順序、main.py 的排程結果文案）。
+    preferred_day: str | None = None
+    # agent 建議插入的班次日期（YYYY-MM-DD），來自 query_shifts 最後一次
+    # 成功查到班次的結果。status 停在 PENDING 時（尚未由班長人工接受，
+    # 見 spec.md §4.4）這是唯一能告訴民眾「系統打算排哪一天」的欄位；
+    # 一旦被接受插入，改看 Stop 所在的 Shift.date 才是真的排定日期。
+    proposed_date: str | None = None
     created_at: datetime = Field(default_factory=datetime.now)
     # agent 處理這筆案件時收集的完整決策軌跡（spec.md §5.3），跟著案件存下來，
     # 讓班長端事後也能看到，不是只存在送件當下那次 API response 裡。
@@ -293,6 +305,15 @@ class SubmitCaseRequest(BaseModel):
     # 預設值只是前端沒送這欄位時的備援，不是強制值。選項清單見
     # GET /api/applicant-types（data.rules.EXCLUDED_APPLICANTS）。
     applicant_type: str = "household"
+    # 民眾指定的清運日偏好（"today" | "tomorrow"），只在首次送件時有意義；
+    # 續答追問時從已存的 Case.preferred_day 讀，不靠前端重送這個欄位。
+    preferred_day: str | None = None
+    # 前端在「確認資料」頁面已經先呼叫過 POST /api/photo/classify 拿到
+    # 辨識結果時帶入，讓這裡不用重跑一次 classify_photo（省一次 Gemini
+    # 呼叫，也避免同一張照片辨識兩次可能得到不完全一樣的結果）。有給
+    # 這個欄位就不會再看 image_base64；沒給且沒有 image_base64 才會退回
+    # 文字猜測（_guess_items_from_text）。
+    items: list[WasteItem] | None = None
 
 
 class SubmitCaseResponse(BaseModel):
@@ -301,10 +322,24 @@ class SubmitCaseResponse(BaseModel):
     case: Case | None = None  # 已產生案件時附上，尚在追問中則為 None
 
 
+class ClassifyPhotoRequest(BaseModel):
+    """民眾端「確認資料」頁面用：只辨識照片、算屬性，不建立案件。"""
+    image_base64: str
+
+
+class ClassifyPhotoResponse(BaseModel):
+    """辨識結果（含屬性），供確認頁面顯示「照片觀察」；不含資格判定。"""
+    items: list[WasteItem]
+
+
 class ScheduleResponse(BaseModel):
     """班長儀表板讀取今日排程（spec.md §3.2）。"""
     shifts: list[Shift]
     pending_review: list[Case] = []  # needs_review 待審佇列（spec.md §6.1）
+    # 已完成的案件，供「今日已完成」區塊顯示。特別是現場複核直接核准的
+    # 案件（見 POST /api/cases/review）從沒被排進任何 Shift.stops，
+    # 完成後只有這裡看得到，不加這個欄位會完全找不到那些案件。
+    completed: list[Case] = []
 
 
 class ProposeInsertionRequest(BaseModel):
@@ -337,3 +372,14 @@ class UpdateCaseStatusRequest(BaseModel):
     """
     case_id: str
     status: CaseStatus
+
+
+class ReviewCaseRequest(BaseModel):
+    """
+    班長現場複核 needs_review 案件（spec.md §6.1：規則含裁量條款，
+    查不到資料的案件由系統誠實承認「判不了」，交清潔隊班長現場裁量，
+    不是系統幫忙猜——這支端點就是那個裁量動作的出口）。
+    """
+    case_id: str
+    approved: bool          # True＝現場確認可收運，False＝確認不可收運
+    note: str | None = None  # 複核備註，選填

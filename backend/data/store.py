@@ -9,6 +9,7 @@ services/scheduler 三個純函式模組，把結果放進記憶體——判定/
 本身仍在 services/，這裡只負責「串起來、存起來」。
 """
 import json
+import threading
 from pathlib import Path
 
 from models import Case, CaseStatus, Eligibility, Location, Shift, WasteItem
@@ -23,6 +24,10 @@ _cases: dict[str, Case] = {}
 _shift_index: dict[tuple[str, str], str] = {}
 _loaded = False
 _next_seq = 1
+# main.py 的 endpoint 都是同步 def，FastAPI 會丟進 threadpool 平行執行，
+# 不是單一 event loop 排隊——_next_seq 這種「讀取→遞增→寫回」不是原子操作，
+# 兩人同時送件有機會拿到同一個 case_id、其中一筆蓋掉另一筆，故需要這把鎖。
+_seq_lock = threading.Lock()
 
 
 def ensure_loaded() -> None:
@@ -126,6 +131,25 @@ def add_case(case: Case) -> None:
     _cases[case.id] = case
 
 
+def sync_case_in_shifts(case: Case) -> None:
+    """
+    案件已經排進某個班次之後，Shift.stops[].case 是那個當下的完整快照，
+    不是參照——之後這筆案件的欄位再變（例如班長標記開始清運/已收運），
+    _cases 這份 store 更新了，但 Shift.stops 裡嵌的那份不會跟著動，
+    兩邊會分岔。update_case_status() 改狀態後要呼叫這個函式，把案件所在
+    的那個 Stop 也一起換成新版本，班長端讀 /api/schedule 時兩邊資料
+    才會一致。
+    """
+    ensure_loaded()
+    for shift in _shifts.values():
+        for i, stop in enumerate(shift.stops):
+            if stop.case.id == case.id:
+                new_stops = list(shift.stops)
+                new_stops[i] = stop.model_copy(update={"case": case})
+                _shifts[shift.id] = shift.model_copy(update={"stops": new_stops})
+                return
+
+
 def get_case(case_id: str) -> Case | None:
     ensure_loaded()
     return _cases.get(case_id)
@@ -137,10 +161,21 @@ def pending_review() -> list[Case]:
     return [case for case in _cases.values() if case.status == CaseStatus.PENDING]
 
 
+def completed_cases() -> list[Case]:
+    """
+    今日已完成案件，供班長端「今日已完成」區塊顯示。特別是現場複核
+    直接核准（見 main.py review_case）的案件從沒被排進任何 Shift.stops，
+    完成後只有 _cases 這份記錄看得到，不能只從 all_shifts() 找。
+    """
+    ensure_loaded()
+    return [case for case in _cases.values() if case.status == CaseStatus.COMPLETED]
+
+
 def next_case_id() -> str:
     """接續 fixture 裡最大的 id 序號，現場追加案件用。"""
     ensure_loaded()
     global _next_seq
-    case_id = f"C{_next_seq:02d}"
-    _next_seq += 1
+    with _seq_lock:
+        case_id = f"C{_next_seq:02d}"
+        _next_seq += 1
     return case_id

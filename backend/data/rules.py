@@ -92,45 +92,45 @@ RENOVATION_KEYWORDS: list[str] = [
 ]
 
 # ---------- 📏 品項屬性對照表（spec.md §7.1）----------
-# 物品名 -> (重量級距, 最大尺寸cm, 可否拆解, 特殊處理, 容量單位[volume_units])
+# 物品名 -> (重量級距, 最大尺寸cm, 可否拆解, 特殊處理, 容量單位[volume_units], 材質)
 #
-# ⚠️ 重量與尺寸為常識推估，非官方規範或實測數據，僅供 Demo 呈現用。
+# ⚠️ 重量、尺寸、材質皆為常識推估，非官方規範或實測數據，僅供 Demo 呈現用。
 # 「系統參考值」的定位見 spec.md §7.1：這是觀察（事實），不是主張（建議）；
 # 建議文字（人力配置等）由 services/attributes.py 的 resource_hint() 另外產生，
 # 不放在這張表裡。
 #
 # 冰箱、冷氣依 spec.md §7.2 標記 special_handling=True（含冷媒設備，需特殊處理）。
-ITEM_ATTRIBUTES: dict[str, tuple[WeightBand, float, bool, bool, float]] = {
+ITEM_ATTRIBUTES: dict[str, tuple[WeightBand, float, bool, bool, float, str]] = {
     # 廢棄家具
-    "彈簧床墊":     (WeightBand.HEAVY,  200.0, False, False, 3.0),
-    "床組":         (WeightBand.HEAVY,  200.0, True,  False, 3.5),
-    "手推車":       (WeightBand.MEDIUM, 100.0, False, False, 1.0),
-    "腳踏車":       (WeightBand.MEDIUM, 170.0, False, False, 1.2),
-    "電動腳踏車":   (WeightBand.HEAVY,  170.0, False, False, 1.5),
-    "微型電動二輪車": (WeightBand.MEDIUM, 120.0, False, False, 1.0),
-    "電風扇":       (WeightBand.LIGHT,  100.0, False, False, 0.5),
-    "沙發":         (WeightBand.HEAVY,  200.0, False, False, 4.0),
-    "桌椅":         (WeightBand.MEDIUM, 120.0, True,  False, 1.5),
-    "櫥櫃":         (WeightBand.HEAVY,  180.0, True,  False, 3.0),
+    "彈簧床墊":     (WeightBand.HEAVY,  200.0, False, False, 3.0, "布料、彈簧"),
+    "床組":         (WeightBand.HEAVY,  200.0, True,  False, 3.5, "木質、金屬"),
+    "手推車":       (WeightBand.MEDIUM, 100.0, False, False, 1.0, "金屬、塑膠"),
+    "腳踏車":       (WeightBand.MEDIUM, 170.0, False, False, 1.2, "金屬"),
+    "電動腳踏車":   (WeightBand.HEAVY,  170.0, False, False, 1.5, "金屬、電池"),
+    "微型電動二輪車": (WeightBand.MEDIUM, 120.0, False, False, 1.0, "金屬、電池"),
+    "電風扇":       (WeightBand.LIGHT,  100.0, False, False, 0.5, "塑膠、金屬"),
+    "沙發":         (WeightBand.HEAVY,  200.0, False, False, 4.0, "布料、木質"),
+    "桌椅":         (WeightBand.MEDIUM, 120.0, True,  False, 1.5, "木質、金屬"),
+    "櫥櫃":         (WeightBand.HEAVY,  180.0, True,  False, 3.0, "木質"),
     # 家電用品
-    "抽油煙機":     (WeightBand.MEDIUM, 90.0,  False, False, 1.0),
-    "瓦斯爐":       (WeightBand.LIGHT,  70.0,  False, False, 0.5),
-    "大型飲水機":   (WeightBand.MEDIUM, 100.0, False, False, 1.0),
-    "電視機":       (WeightBand.MEDIUM, 140.0, False, False, 1.5),
-    "電冰箱":       (WeightBand.HEAVY,  180.0, False, True,  3.0),  # 含冷媒設備
-    "洗衣機":       (WeightBand.HEAVY,  90.0,  False, False, 1.5),
-    "冷氣機":       (WeightBand.MEDIUM, 90.0,  False, True,  1.5),  # 含冷媒設備
-    "立燈":         (WeightBand.LIGHT,  150.0, False, False, 0.3),
-    "落地燈":       (WeightBand.LIGHT,  150.0, False, False, 0.3),
+    "抽油煙機":     (WeightBand.MEDIUM, 90.0,  False, False, 1.0, "金屬"),
+    "瓦斯爐":       (WeightBand.LIGHT,  70.0,  False, False, 0.5, "金屬"),
+    "大型飲水機":   (WeightBand.MEDIUM, 100.0, False, False, 1.0, "塑膠、金屬"),
+    "電視機":       (WeightBand.MEDIUM, 140.0, False, False, 1.5, "塑膠、玻璃"),
+    "電冰箱":       (WeightBand.HEAVY,  180.0, False, True,  3.0, "金屬（含冷媒）"),  # 含冷媒設備
+    "洗衣機":       (WeightBand.HEAVY,  90.0,  False, False, 1.5, "金屬、塑膠"),
+    "冷氣機":       (WeightBand.MEDIUM, 90.0,  False, True,  1.5, "金屬（含冷媒）"),  # 含冷媒設備
+    "立燈":         (WeightBand.LIGHT,  150.0, False, False, 0.3, "金屬、塑膠"),
+    "落地燈":       (WeightBand.LIGHT,  150.0, False, False, 0.3, "金屬、塑膠"),
     # 其他
-    "樹枝":         (WeightBand.LIGHT,  200.0, True,  False, 1.0),
-    "廢行李箱":     (WeightBand.LIGHT,  80.0,  False, False, 0.4),
+    "樹枝":         (WeightBand.LIGHT,  200.0, True,  False, 1.0, "木質"),
+    "廢行李箱":     (WeightBand.LIGHT,  80.0,  False, False, 0.4, "塑膠、金屬"),
 }
 
 # 未知品項（不在上表）的預設值。中等重量、不可拆解、不特殊處理，
 # 讓判定退回保守估計，而不是讓程式直接出錯。
-DEFAULT_ITEM_ATTRIBUTES: tuple[WeightBand, float, bool, bool, float] = (
-    WeightBand.MEDIUM, 100.0, False, False, 1.0,
+DEFAULT_ITEM_ATTRIBUTES: tuple[WeightBand, float, bool, bool, float, str | None] = (
+    WeightBand.MEDIUM, 100.0, False, False, 1.0, None,
 )
 
 # ---------- 📍 清潔隊駐地（spec.md §4.1 排程起點）----------

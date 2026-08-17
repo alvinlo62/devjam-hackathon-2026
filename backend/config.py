@@ -9,7 +9,7 @@ load_dotenv()
 log = logging.getLogger(__name__)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
 
 # DEMO_MODE=true 時，AI 層改讀 fixtures，完全不呼叫外部 API。
 # 現場網路異常、額度用完或 API 變慢時的保命開關。
