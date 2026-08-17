@@ -14,8 +14,11 @@ from models import ItemAttributes, WasteItem, WeightBand
 
 def annotate(item: WasteItem) -> ItemAttributes:
     """查表取得單一品項的屬性，查不到就用保守預設值（見 rules.DEFAULT_ITEM_ATTRIBUTES）。"""
+    # 別名對照跟 services/eligibility.py 用同一張表，兩邊對「這是同一種東西」
+    # 要有一致的認知，例如「辦公椅」查屬性時也該當成「桌椅」查。
+    canonical = rules.ITEM_ALIASES.get(item.name, item.name)
     weight_band, max_dimension_cm, dismantlable, special_handling, volume_units = (
-        rules.ITEM_ATTRIBUTES.get(item.name, rules.DEFAULT_ITEM_ATTRIBUTES)
+        rules.ITEM_ATTRIBUTES.get(canonical, rules.DEFAULT_ITEM_ATTRIBUTES)
     )
     return ItemAttributes(
         weight_band=weight_band,

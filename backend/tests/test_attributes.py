@@ -13,6 +13,12 @@ def test_annotate_known_item_returns_correct_attributes():
     assert attrs.volume_units == 4.0
 
 
+def test_annotate_resolves_alias_to_canonical_attributes():
+    aliased = attributes.annotate(_item("辦公椅"))
+    canonical = attributes.annotate(_item("桌椅"))
+    assert aliased == canonical
+
+
 def test_fridge_marked_for_special_handling():
     attrs = attributes.annotate(_item("電冰箱"))
     assert attrs.special_handling is True

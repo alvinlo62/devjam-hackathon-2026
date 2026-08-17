@@ -53,6 +53,13 @@ def test_unknown_item_needs_review():
     assert result.status == Eligibility.NEEDS_REVIEW
 
 
+def test_alias_resolves_to_accepted_item():
+    result = eligibility.check([_item("辦公椅")])
+    assert result.status == Eligibility.ELIGIBLE
+    assert "辦公椅" in result.reasons[0]
+    assert "桌椅" in result.reasons[0]
+
+
 def test_item_results_pinpoint_which_item_failed():
     result = eligibility.check([_item("沙發"), _item("大理石桌")])
     assert result.status == Eligibility.INELIGIBLE  # 案件層級彙整取最嚴重者

@@ -12,6 +12,7 @@ dependencies = [
     "sqlalchemy>=2.0.52",
     "anyio>=4.14.2",
     "slowapi>=0.1.10",
+    "google-adk>=2.7.0",
 ]
 
 [dependency-groups]

@@ -99,6 +99,9 @@ def _check_item(
 ) -> tuple[Eligibility, list[str], list[str], bool]:
     """回傳 (status, reasons, rule_refs, clarification_needed)，單一品項判定。"""
     name = item.name
+    # 別名對照：Gemini 辨識用詞轉成公告清單的精確字串（例如「辦公椅」-> 「桌椅」），
+    # 只用來比對，reasons 裡仍顯示原始名稱，保持對民眾/班長的說明貼近實際輸入。
+    canonical = rules.ITEM_ALIASES.get(name, name)
 
     if any(kw in name for kw in rules.STONE_KEYWORDS):
         return (
@@ -108,7 +111,7 @@ def _check_item(
             False,
         )
 
-    threshold = rules.QUANTITY_THRESHOLDS.get(name)
+    threshold = rules.QUANTITY_THRESHOLDS.get(canonical)
     if threshold is not None and item.quantity < threshold:
         return (
             Eligibility.INELIGIBLE,
@@ -143,13 +146,16 @@ def _check_item(
             True,
         )
 
-    if name in _ACCEPTED_NAMES:
-        return (
-            Eligibility.ELIGIBLE,
-            [f"「{name}」屬公告收運品項清單"],
-            ["rules.ACCEPTED_ITEMS"],
-            False,
+    if canonical in _ACCEPTED_NAMES:
+        reason = (
+            f"「{name}」屬公告收運品項清單"
+            if canonical == name
+            else f"「{name}」對應公告品項「{canonical}」，屬收運清單"
         )
+        refs = ["rules.ACCEPTED_ITEMS"]
+        if canonical != name:
+            refs.append("rules.ITEM_ALIASES")
+        return (Eligibility.ELIGIBLE, [reason], refs, False)
 
     return (
         Eligibility.NEEDS_REVIEW,
