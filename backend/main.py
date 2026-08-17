@@ -37,6 +37,7 @@ from models import (
     ScheduleResponse,
     SubmitCaseRequest,
     SubmitCaseResponse,
+    UpdateCaseStatusRequest,
     WasteItem,
 )
 from services import scheduler
@@ -280,6 +281,67 @@ def accept_insertion(req: AcceptInsertionRequest):
         return ApiResponse(data={"shift": new_shift, "case": updated_case})
     except Exception as e:
         log.exception("accept_insertion failed")
+        return ApiResponse(ok=False, error=str(e))
+
+
+_MANUAL_CASE_STATUSES = {CaseStatus.COLLECTING, CaseStatus.COMPLETED}
+
+
+@app.get("/api/cases/{case_id}", response_model=ApiResponse)
+def get_case(case_id: str):
+    """
+    民眾端輪詢查詢單一案件狀態，用來同步進度（已送出/已排程/清運中/
+    已完成），連同已排班次的預計清運時間與地點一起回傳（尚未排入
+    任何班次時 pickup 是 None）。
+    """
+    try:
+        case = store.get_case(case_id)
+        if case is None:
+            return ApiResponse(ok=False, error=f"找不到案件：{case_id}")
+
+        pickup = None
+        for shift in store.all_shifts():
+            for stop in shift.stops:
+                if stop.case.id == case_id:
+                    pickup = {
+                        "district": shift.district,
+                        "date": shift.date,
+                        "seq": stop.seq,
+                        "eta_minutes": stop.eta_minutes,
+                    }
+                    break
+            if pickup:
+                break
+
+        return ApiResponse(data={"case": case, "pickup": pickup})
+    except Exception as e:
+        log.exception("get_case failed")
+        return ApiResponse(ok=False, error=str(e))
+
+
+@app.post("/api/cases/status", response_model=ApiResponse)
+def update_case_status(req: UpdateCaseStatusRequest):
+    """
+    班長手動標記「開始清運」/「已收運」（每一站各自獨立標記，不是自動
+    依日期/時間推斷）。只接受 collecting/completed，其餘狀態轉換各自有
+    專屬流程，不透過這支通用改，避免繞過 check_eligibility/apply_insertion
+    的既有規則。
+    """
+    try:
+        if req.status not in _MANUAL_CASE_STATUSES:
+            return ApiResponse(
+                ok=False,
+                error=f"這支 endpoint 只接受 collecting/completed，收到：{req.status.value}",
+            )
+        case = store.get_case(req.case_id)
+        if case is None:
+            return ApiResponse(ok=False, error=f"找不到案件：{req.case_id}")
+
+        updated_case = case.model_copy(update={"status": req.status})
+        store.add_case(updated_case)
+        return ApiResponse(data=updated_case)
+    except Exception as e:
+        log.exception("update_case_status failed")
         return ApiResponse(ok=False, error=str(e))
 
 

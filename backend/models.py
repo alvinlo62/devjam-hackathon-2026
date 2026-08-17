@@ -56,15 +56,23 @@ class CaseStatus(str, Enum):
     """
     案件生命週期狀態。
 
-    pending   — 剛送出，尚未排入任何班次（含 needs_review 待審中的案件）
-    scheduled — 已排入某班次的路線
-    deferred  — 因當班超載，改排至明日班次（spec.md §4.2 的「建議移至明日」）
-    rejected  — 判定 ineligible，不進入排程
+    pending    — 剛送出，尚未排入任何班次（含 needs_review 待審中的案件）
+    scheduled  — 已排入某班次的路線（班長按接受，見 /api/insertion/accept）
+    deferred   — 因當班超載，改排至明日班次（spec.md §4.2 的「建議移至明日」）
+    rejected   — 判定 ineligible，不進入排程
+    collecting — 班長手動標記「開始清運」，車輛已在處理這一站
+    completed  — 班長手動標記「已收運」
+
+    collecting/completed 是民眾端進度同步用（送出後同一頁面顯示
+    已送出→已排程→清運中→已完成），觸發方式是班長手動點按（每一站
+    各自獨立標記），不是自動依日期/時間推斷——見 /api/cases/status。
     """
     PENDING = "pending"
     SCHEDULED = "scheduled"
     DEFERRED = "deferred"
     REJECTED = "rejected"
+    COLLECTING = "collecting"
+    COMPLETED = "completed"
 
 
 # ==================== 領域模型 ====================
@@ -308,3 +316,13 @@ class AcceptInsertionRequest(BaseModel):
     case_id: str
     shift_id: str
     position: int
+
+
+class UpdateCaseStatusRequest(BaseModel):
+    """
+    班長手動標記案件進度（開始清運/已收運）。只接受 CaseStatus.COLLECTING /
+    COMPLETED——其餘狀態轉換各自有專屬流程（送件走 ai/agent.run()，
+    排入班次走 AcceptInsertionRequest），不透過這支通用改。
+    """
+    case_id: str
+    status: CaseStatus
