@@ -6,6 +6,14 @@
 # ---- 1. build 前端 ----
 FROM node:20-slim AS frontend-build
 WORKDIR /app/frontend
+
+# Vite 的 VITE_* 變數是 build 當下就烤進打包好的 JS 檔案，不是執行期讀的，
+# 所以不能像後端那樣用 Cloud Run 的 --set-env-vars 解決，一定要在這裡當
+# build argument 傳進來（見部署指令的 --build-arg）。.dockerignore 排除了
+# .env，這裡也不會意外把本機的 .env 檔案內容帶進 image。
+ARG VITE_GOOGLE_MAPS_API_KEY
+ENV VITE_GOOGLE_MAPS_API_KEY=${VITE_GOOGLE_MAPS_API_KEY}
+
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./

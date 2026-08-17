@@ -5,6 +5,7 @@
 **/node_modules
 **/dist
 backend/static
+frontend/reference
 **/.env
 .git
 .gitignore
