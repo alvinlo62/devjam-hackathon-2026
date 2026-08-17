@@ -6,20 +6,20 @@ on:
       - "v*"
 
 env:
-  PROJECT_ID: hackathon-test-505708
-  SERVICE: hackathon-test-service
-  REPOSITORY: hackathon-test
-  IMAGE: hackathon-test
+  PROJECT_ID: 
+  SERVICE: 
+  REPOSITORY: 
+  IMAGE: 
   # 部署用的 service account email（例如 hackathon-deployer@YOUR_PROJECT_ID.iam.gserviceaccount.com）。
   # 同一個 SA 兼任 CI 部署身分與 Cloud Run 執行身分，這樣 runtime 讀 Secret Manager 才會用到
   # 有掛 secretmanager.secretAccessor 角色的那個身分，不會落到權限不足的預設 Compute SA 上。
-  SERVICE_ACCOUNT: hackathon-test-account@hackathon-test-505708.iam.gserviceaccount.com
+  SERVICE_ACCOUNT: 
 
   # Cloud SQL instance connection name（格式 PROJECT:REGION:INSTANCE）。
   # 只給 --add-cloudsql-instances 用來掛 Cloud SQL Auth Proxy，deploy 當下就要知道，
   # 不算敏感資訊（跟 PROJECT_ID 同等級）。app 執行時讀的連線參數另外走
   # Secret Manager 的 CLOUD_SQL_CONFIG（見下面 --set-secrets），兩邊各自獨立、值可以重複填。
-  DB_INSTANCE_CONNECTION_NAME: hackathon-test-505708:asia-east1:hackathon-test
+  DB_INSTANCE_CONNECTION_NAME: 
 
 jobs:
   setup-build-publish-deploy:
