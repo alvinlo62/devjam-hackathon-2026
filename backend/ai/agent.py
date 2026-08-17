@@ -25,10 +25,14 @@ log = logging.getLogger(__name__)
 MAX_TURNS = 8  # 對應 ADK RunConfig(max_llm_calls=...)，避免無限迴圈
 
 
-def run_scripted(case: Case) -> Case:
+def run_scripted(case: Case, renovation_by: str | None = None) -> Case:
     """
     離線劇本。決策順序寫死，但呼叫的是跟 run_llm 完全相同的
     orchestrator.execute()，所以畫面（trace 的形狀）跟正式路徑一致。
+
+    renovation_by：民眾回答完裝潢廢料追問後續答同一案件時帶入
+    （見 main.py 的 POST /api/cases case_id 續答路徑），讓
+    check_eligibility 這次能算出最終判定，不再卡在 clarification_needed。
     """
     store.add_case(case)
     trace: list[TraceStep] = [_photo_analysis_step(case)]
@@ -43,7 +47,10 @@ def run_scripted(case: Case) -> Case:
     item_names = [item.name for item in case.items]
     quantities = [item.quantity for item in case.items]
 
-    elig = call("check_eligibility", {"item_names": item_names, "quantities": quantities})
+    elig_args = {"item_names": item_names, "quantities": quantities}
+    if renovation_by:
+        elig_args["renovation_by"] = renovation_by
+    elig = call("check_eligibility", elig_args)
 
     if elig["clarification_needed"]:
         # 目前 services/eligibility.py 唯一會觸發 clarification_needed 的
@@ -81,12 +88,18 @@ def run_scripted(case: Case) -> Case:
 
     updates = _derive_case_updates(tool_results)
     note = summarize(trace, updates)
-    return case.model_copy(update={**updates, "trace": trace, "note": note})
+    result = case.model_copy(update={**updates, "trace": trace, "note": note})
+    store.add_case(result)  # 存回處理完的版本，不是開頭那個還沒判定的版本
+    return result
 
 
-def run_llm(case: Case) -> Case:
+def run_llm(case: Case, renovation_by: str | None = None) -> Case:
     """
     真正的 agent 迴圈，用 Google ADK 的 LlmAgent + Runner 執行。
+
+    renovation_by：續答同一案件時帶入，併入給模型的案件摘要文字裡，
+    模型看到之後應該會自己在呼叫 check_eligibility 時帶上這個答案
+    （不是這裡幫模型決定要不要用，只是把民眾的回答如實告訴它）。
 
     ADK 的 tools 直接吃 ai/tools.py 的 Python 函式（框架自己讀 type hint
     跟 docstring 生成 schema），每次工具被呼叫後，after_tool_callback
@@ -138,7 +151,8 @@ def run_llm(case: Case) -> Case:
         user_id="citizen",
         session_id=session.id,
         new_message=genai_types.Content(
-            role="user", parts=[genai_types.Part(text=_case_summary_text(case))]
+            role="user",
+            parts=[genai_types.Part(text=_case_summary_text(case, renovation_by=renovation_by))],
         ),
         run_config=RunConfig(max_llm_calls=MAX_TURNS),
     )
@@ -155,25 +169,28 @@ def run_llm(case: Case) -> Case:
 
     updates = _derive_case_updates(tool_results)
     note = final_text or summarize(trace, updates)
-    return case.model_copy(update={**updates, "trace": trace, "note": note})
+    result = case.model_copy(update={**updates, "trace": trace, "note": note})
+    store.add_case(result)  # 存回處理完的版本，不是開頭那個還沒判定的版本
+    return result
 
 
-def run(case: Case) -> tuple[Case, bool]:
+def run(case: Case, renovation_by: str | None = None) -> tuple[Case, bool]:
     """
     DEMO_MODE=true -> run_scripted；否則嘗試 run_llm，失敗（沒 API key、
     網路異常、模型行為異常）時降級到 run_scripted，不讓整條流程中斷
     （AGENTS.md：每個 AI 任務都要有失敗時的 fixture 降級路徑）。
 
+    renovation_by：續答裝潢廢料追問時帶入，見 run_scripted/run_llm 的說明。
     回傳 (case, used_ai)，used_ai 標示這次是不是真的跑了 run_llm。
     """
     if config.DEMO_MODE:
-        return run_scripted(case), False
+        return run_scripted(case, renovation_by=renovation_by), False
 
     try:
-        return run_llm(case), True
+        return run_llm(case, renovation_by=renovation_by), True
     except Exception:
         log.exception("run_llm 失敗，降級到 run_scripted")
-        return run_scripted(case), False
+        return run_scripted(case, renovation_by=renovation_by), False
 
 
 def summarize(trace: list[TraceStep], results: dict) -> str:
@@ -236,10 +253,16 @@ def _photo_analysis_step(case: Case) -> TraceStep:
     return TraceStep(icon="🔍", action="分析照片…", detail=f"辨識：{summary}")
 
 
-def _case_summary_text(case: Case) -> str:
+def _case_summary_text(case: Case, renovation_by: str | None = None) -> str:
     items_text = "、".join(f"{item.name}×{item.quantity}" for item in case.items)
+    extra = (
+        f"\n民眾已回答裝潢廢料來源追問：renovation_by={renovation_by}"
+        "（呼叫 check_eligibility 時請帶上這個答案）。"
+        if renovation_by
+        else ""
+    )
     return (
         f"新案件 {case.id}，地點：{case.location.district}（{case.location.address}）。\n"
-        f"申報品項：{items_text}。\n"
+        f"申報品項：{items_text}。{extra}\n"
         "請依你的工作原則處理這件案子，決定要呼叫哪些工具。"
     )

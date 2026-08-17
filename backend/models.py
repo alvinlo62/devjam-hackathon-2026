@@ -285,6 +285,7 @@ class SubmitCaseResponse(BaseModel):
 class ScheduleResponse(BaseModel):
     """班長儀表板讀取今日排程（spec.md §3.2）。"""
     shifts: list[Shift]
+    pending_review: list[Case] = []  # needs_review 待審佇列（spec.md §6.1）
 
 
 class ProposeInsertionRequest(BaseModel):
