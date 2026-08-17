@@ -1,0 +1,1406 @@
+<!doctype html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b5a4a">
+  <meta name="description" content="CityTask 大型廢棄物收運調度系統">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <title>CityTask 班長端｜調度台</title>
+
+  <style>
+    /* ═══════════════════════════════════════════════════════════
+       gov.css　—　政府識別：識別帶、頁首、頁尾、共用元件
+       ═══════════════════════════════════════════════════════════ */
+
+    /* 機關識別帶、正式頁尾與圖表：民眾端與班長端共用 */
+
+    .gov-banner { border-bottom: 1px solid #0a3f34; background: #0a3f34; color: #e6efeb; }
+    .gov-banner-inner {
+      width: min(1240px, calc(100% - 40px)); min-height: 34px; margin: auto;
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      font-size: 12px; line-height: 1.4;
+    }
+    .gov-banner-agency { font-weight: 700; letter-spacing: .02em; }
+    .gov-banner-divider { width: 1px; height: 12px; background: rgba(255, 255, 255, .3); }
+    .gov-banner-system { color: #b8cec6; }
+    .gov-banner-flag {
+      margin-left: auto; padding: 2px 7px; border: 1px solid rgba(255, 255, 255, .35); border-radius: 2px;
+      color: #f0d9b2; font-size: 11px; font-weight: 700; letter-spacing: .04em;
+    }
+
+    .gov-footer { margin-top: 56px; border-top: 3px solid var(--brand); background: #eff2f0; }
+    .gov-footer-inner {
+      width: min(1240px, calc(100% - 40px)); margin: auto; padding: 26px 0 18px;
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 32px; flex-wrap: wrap;
+    }
+    .gov-footer-org strong { display: block; margin-bottom: 10px; font-size: 14px; color: var(--ink); }
+    .gov-footer-org dl { margin: 0; display: grid; gap: 4px; }
+    .gov-footer-org dl > div { display: flex; gap: 8px; font-size: 12px; line-height: 1.6; }
+    .gov-footer-org dt { flex: none; width: 60px; color: #6d7a74; }
+    .gov-footer-org dd { margin: 0; color: #3b4741; }
+    .gov-footer-links ul { margin: 0; padding: 0; display: grid; gap: 6px; list-style: none; }
+    .gov-footer-links a { color: #2c4a40; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }
+    .gov-footer-links a:hover { color: var(--brand); }
+    .gov-footer-meta {
+      width: min(1240px, calc(100% - 40px)); margin: auto; padding: 14px 0 24px;
+      border-top: 1px solid #dbe1de; color: #66736d; font-size: 11px; line-height: 1.7;
+    }
+    .gov-footer-meta p { margin: 0; }
+
+    /* 環圈圖 */
+    .donut-block { padding: 16px 16px 6px; display: grid; gap: 14px; }
+    .donut-figure { position: relative; justify-self: center; width: 168px; }
+    .donut-figure svg { width: 100%; height: auto; display: block; }
+    .donut-figure circle[stroke]:not([stroke="#eef1ef"]) { cursor: pointer; transition: stroke-width .12s ease, opacity .12s ease; }
+    .donut-center {
+      position: absolute; inset: 0; display: grid; place-content: center; text-align: center;
+      pointer-events: none;
+    }
+    .donut-center strong { font-size: 27px; line-height: 1.1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+    .donut-center small { margin-top: 3px; display: block; color: var(--ink-soft); font-size: 11px; }
+
+    .donut-legend { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .donut-legend thead th {
+      padding: 0 0 6px; border-bottom: 1px solid var(--line);
+      color: #6d7a74; font-size: 11px; font-weight: 600; text-align: right;
+    }
+    .donut-legend thead th:first-child { text-align: left; }
+    .donut-legend tbody th {
+      padding: 7px 0; display: flex; align-items: center; gap: 7px;
+      font-size: 12px; font-weight: 600; text-align: left;
+    }
+    .donut-legend tbody th i { width: 10px; height: 10px; flex: none; border-radius: 2px; }
+    .donut-legend tbody td { padding: 7px 0; color: #3d4a44; text-align: right; font-variant-numeric: tabular-nums; }
+    .donut-legend tbody tr { border-bottom: 1px solid #eef1ef; }
+    .donut-legend tbody tr:last-child { border-bottom: 0; }
+    .donut-legend tbody tr.is-active { background: #f4f7f5; }
+    .donut-empty { margin: 0; padding: 22px 16px; color: var(--ink-soft); font-size: 12px; }
+
+    @media (max-width: 640px) {
+      .gov-banner-inner { width: calc(100% - 28px); padding: 6px 0; font-size: 11px; }
+      .gov-banner-flag { margin-left: 0; }
+      .gov-footer-inner, .gov-footer-meta { width: calc(100% - 28px); }
+      .gov-footer-inner { gap: 20px; }
+    }
+
+    /* 環圈中心文字需容納於中空區（內徑約 82px），過長時換行不外溢 */
+    .donut-center { padding: 0 6px; }
+    .donut-center > * { max-width: 80px; }
+    .donut-center small { font-size: 10px; line-height: 1.4; overflow-wrap: anywhere; }
+
+    /* 民眾端內容寬度為 1120px，識別帶與頁尾需對齊同一版心 */
+    .app-root .gov-banner-inner,
+    .app-root .gov-footer-inner,
+    .app-root .gov-footer-meta { width: min(1120px, calc(100% - 40px)); }
+
+    @media (max-width: 640px) {
+      .app-root .gov-banner-inner,
+      .app-root .gov-footer-inner,
+      .app-root .gov-footer-meta { width: calc(100% - 28px); }
+    }
+
+    /* ── 班長端：頂部全寬路線圖 ───────────────────────────────── */
+    .route-map-panel { margin: 0 0 16px; border: 1px solid var(--line); border-radius: 3px; background: #fff; overflow: hidden; }
+    .route-map-meta { display: flex; align-items: center; gap: 8px; color: var(--ink-soft); font-size: 11px; }
+    .map-badge { padding: 2px 7px; border: 1px solid var(--line-strong); border-radius: 2px; color: #55625b; background: #f4f6f5; font-size: 10px; font-weight: 600; }
+    .route-map-canvas { border-top: 1px solid var(--line); background: #eef1ee; }
+    .route-map-canvas svg { width: 100%; height: auto; display: block; }
+    .route-map-empty { margin: 0; padding: 64px 20px; color: var(--ink-soft); font-size: 13px; text-align: center; }
+
+    .route-pin text { fill: #fff; font-size: 13px; font-weight: 700; font-family: system-ui, sans-serif; }
+    .route-pin .route-pin-label { fill: #8a4a06; font-size: 13px; text-anchor: start; }
+    .route-pin--new text:first-of-type { font-size: 15px; }
+
+    .route-map-legend {
+      margin: 0; padding: 9px 16px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+      border-top: 1px solid var(--line); color: var(--ink-soft); font-size: 11px;
+    }
+    .route-map-legend .dot { width: 9px; height: 9px; margin-left: 10px; border-radius: 2px; }
+    .route-map-legend .dot:first-child { margin-left: 0; }
+    .route-map-legend .dot--route { background: var(--brand); }
+    .route-map-legend .dot--new { background: #c2610b; }
+    .route-map-legend .dot--review { background: #8a5a12; }
+    .route-map-legend em { margin-left: auto; font-style: normal; color: #8a958f; }
+
+    /* ── 民眾端：清運進度追蹤 ─────────────────────────────────── */
+    .case-progress { margin-bottom: 24px; display: grid; gap: 14px; }
+
+    .progress-card { padding: 18px 18px 6px; border: 1px solid var(--line); border-radius: 3px; background: #fff; }
+    .progress-window { margin: 0 0 18px; color: var(--brand); font-size: 16px; line-height: 1.5; text-align: center; }
+    .progress-window strong { font-variant-numeric: tabular-nums; }
+
+    .progress-track { margin: 0; padding: 0 0 14px; display: grid; grid-template-columns: repeat(4, 1fr); list-style: none; }
+    .progress-step { position: relative; display: grid; justify-items: center; gap: 7px; }
+    .progress-line { position: absolute; top: 17px; right: 50%; width: 100%; height: 2px; background: #dfe5e2; }
+    .progress-line.is-filled { background: var(--brand); }
+    .progress-icon {
+      position: relative; z-index: 1; width: 36px; height: 36px; display: grid; place-items: center;
+      border: 1px solid #dfe5e2; border-radius: 50%; color: #99a49e; background: #fff;
+    }
+    .progress-label { color: #99a49e; font-size: 12px; font-weight: 600; }
+    .progress-step.is-done .progress-icon,
+    .progress-step.is-current .progress-icon { border-color: var(--brand); color: var(--brand); }
+    .progress-step.is-current .progress-icon { color: #fff; background: var(--brand); }
+    .progress-step.is-done .progress-label,
+    .progress-step.is-current .progress-label { color: var(--brand); }
+    .progress-step.is-current .progress-label { font-weight: 700; }
+
+    .progress-timeline { border: 1px solid var(--line); border-radius: 3px; background: #fff; }
+    .timeline-header { padding: 14px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--line); }
+    .timeline-thumb { width: 42px; height: 42px; flex: none; display: grid; place-items: center; overflow: hidden; border: 1px solid var(--line); border-radius: 2px; color: #9aa5a0; background: #f4f6f5; }
+    .timeline-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .timeline-id { min-width: 0; flex: 1; }
+    .timeline-id strong { display: block; font-size: 14px; }
+    .timeline-id p { margin: 4px 0 0; display: flex; align-items: center; gap: 8px; color: var(--ink-soft); font-size: 12px; font-variant-numeric: tabular-nums; }
+    .timeline-id button {
+      display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px;
+      border: 1px solid var(--line-strong); border-radius: 2px; color: #55625b; background: #fff;
+      font-size: 11px; cursor: pointer;
+    }
+    .timeline-id button:hover { border-color: var(--brand); color: var(--brand); }
+    .timeline-item { flex: none; padding: 4px 9px; border: 1px solid var(--line); border-radius: 2px; color: #4a5751; background: #f4f6f5; font-size: 12px; }
+
+    .timeline-list { margin: 0; padding: 16px 16px 18px; list-style: none; }
+    .timeline-row { position: relative; display: grid; grid-template-columns: 108px 16px minmax(0, 1fr); gap: 0 10px; padding-bottom: 18px; }
+    .timeline-row:last-child { padding-bottom: 0; }
+    .timeline-row::before {
+      content: ''; position: absolute; left: 115px; top: 16px; width: 2px; height: calc(100% - 8px); background: #e4eae7;
+    }
+    .timeline-row:last-child::before { display: none; }
+    .timeline-time { color: #99a49e; font-size: 12px; line-height: 1.5; text-align: right; font-variant-numeric: tabular-nums; }
+    .timeline-mark { justify-self: center; width: 9px; height: 9px; margin-top: 6px; border-radius: 50%; background: #cdd6d1; }
+    .timeline-body strong { display: block; color: #99a49e; font-size: 14px; line-height: 1.4; }
+    .timeline-body small { display: block; margin-top: 3px; color: #a8b2ad; font-size: 12px; line-height: 1.6; }
+    .timeline-row.is-done .timeline-time { color: var(--ink-soft); }
+    .timeline-row.is-done .timeline-body strong { color: var(--ink); }
+    .timeline-row.is-done .timeline-body small { color: var(--ink-soft); }
+    .timeline-row.is-done .timeline-mark { background: var(--brand); }
+    .timeline-row:first-child.is-done .timeline-body strong { color: var(--brand); }
+    .timeline-row:first-child.is-done .timeline-mark { box-shadow: 0 0 0 3px var(--brand-pale); }
+
+    @media (max-width: 560px) {
+      .progress-window { font-size: 14px; }
+      .progress-label { font-size: 11px; }
+      .timeline-row { grid-template-columns: 84px 16px minmax(0, 1fr); }
+      .timeline-row::before { left: 91px; }
+      .timeline-time { font-size: 11px; }
+      .timeline-header { flex-wrap: wrap; }
+      .route-map-legend em { margin-left: 0; width: 100%; }
+    }
+
+    /* 時間軸連接線需對齊圓點欄中心：108px + 10px gap + (16px/2) - 1px */
+    .timeline-row::before { left: 125px; }
+    .progress-demo {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+      padding: 9px 12px; border: 1px dashed var(--line-strong); border-radius: 3px; background: #f7f9f8;
+    }
+    .progress-demo > span { margin-right: 4px; color: #7d8a83; font-size: 11px; font-weight: 600; }
+    .progress-demo button {
+      min-height: 30px; padding: 5px 10px; border: 1px solid var(--line-strong); border-radius: 2px;
+      color: #55625b; background: #fff; font-size: 12px; cursor: pointer;
+    }
+    .progress-demo button[aria-pressed="true"] { border-color: var(--brand); color: #fff; background: var(--brand); }
+
+    @media (max-width: 560px) {
+      .timeline-row::before { left: 101px; }
+    }
+
+    /* ── 任務清單：與右欄底部齊平 + 分頁 ─────────────────────────
+       route-panel 用 grid，把表格區設為 1fr 且 min-height: 0，
+       面板就不會被列數撐開，高度改由右欄決定；超出的站點分頁顯示。 */
+    .dashboard-grid { align-items: stretch; }
+    .route-panel {
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr) auto;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .route-table-body { min-height: 0; overflow: hidden; }
+
+    .route-pagination {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+      padding: 10px 18px; border-top: 1px solid var(--line); background: #f7f9f8;
+    }
+    .route-pagination p { margin: 0; color: var(--ink-soft); font-size: 12px; font-variant-numeric: tabular-nums; }
+    .route-pagination nav { display: flex; gap: 4px; }
+    .route-pagination button {
+      min-width: 30px; min-height: 30px; padding: 4px 8px;
+      border: 1px solid var(--line-strong); border-radius: 2px;
+      color: #55625b; background: #fff; font-size: 12px; font-variant-numeric: tabular-nums; cursor: pointer;
+    }
+    .route-pagination button:hover:not(:disabled) { border-color: var(--brand); color: var(--brand); }
+    .route-pagination button[aria-current="page"] { border-color: var(--brand); color: #fff; background: var(--brand); }
+    .route-pagination button:disabled { color: #b3bcb7; cursor: default; }
+
+    @media (max-width: 950px) {
+      .dashboard-grid { align-items: start; }
+      .route-panel { display: block; overflow: visible; }
+      .route-table-body { overflow: visible; }
+    }
+
+    /* 表格內層抽離文件流，避免列數回過頭撐高面板；
+       min-height 為面板下限，右欄較短時兩欄一起拉高，仍維持齊平。 */
+    .route-panel { position: relative; min-height: 460px; }
+    .route-table-body { position: relative; }
+    .route-table-inner { position: absolute; inset: 0; overflow: hidden; }
+
+    @media (max-width: 950px) {
+      .route-panel { min-height: 0; }
+      .route-table-body { position: static; }
+      .route-table-inner { position: static; overflow: visible; }
+    }
+
+    /* ── Agent 對話層 ─────────────────────────────────────────── */
+
+    /* 識別圖示：方角、機關色，不做擬人化圓形頭像 */
+    .agent-avatar {
+      position: relative; flex: none; display: grid; place-items: center;
+      border-radius: 3px; color: var(--brand); background: var(--brand-pale);
+    }
+    .agent-avatar-ring { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+    .agent-avatar-ring rect { fill: none; stroke: transparent; stroke-width: 3; }
+    .agent-avatar--thinking { color: #fff; background: var(--brand); }
+    .agent-avatar--thinking .agent-avatar-ring rect {
+      stroke: var(--brand); stroke-dasharray: 34 114; stroke-linecap: round;
+      animation: ring-travel 1.5s linear infinite;
+    }
+    .agent-avatar--thinking > svg { animation: mark-pulse 1.5s ease-in-out infinite; }
+    .agent-avatar--speaking { color: var(--brand-dark); background: var(--brand-pale); }
+    @keyframes ring-travel { to { stroke-dashoffset: -148; } }
+    @keyframes mark-pulse { 0%, 100% { opacity: .55; transform: scale(.92); } 50% { opacity: 1; transform: scale(1); } }
+
+    .message-stream { gap: 16px; }
+    .stream-header {
+      display: flex; align-items: center; gap: 10px; padding-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    .stream-header strong { display: block; font-size: 13px; }
+    .stream-header small { display: block; margin-top: 2px; color: var(--ink-soft); font-size: 11px; line-height: 1.5; }
+
+    .agent-row { grid-template-columns: 28px minmax(0, 1fr); gap: 10px; }
+    .agent-row--note { align-items: start; }
+    .agent-note {
+      padding: 11px 14px; border: 1px solid var(--line); border-left: 3px solid var(--brand);
+      border-radius: 3px; background: #f7f9f8;
+    }
+    .agent-note p { margin: 0; font-size: 14px; line-height: 1.65; }
+
+    .fact-changes { margin: 9px 0 0; padding: 0; display: grid; gap: 5px; list-style: none; }
+    .fact-changes li { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 12px; }
+    .fact-label { padding: 2px 7px; border: 1px solid var(--line-strong); border-radius: 2px; color: #55625b; background: #fff; }
+    .fact-from { color: #97a19b; text-decoration: line-through; }
+    .fact-changes svg { color: #97a19b; }
+    .fact-to { color: var(--brand-dark); font-weight: 700; }
+
+    .user-row { display: flex; justify-content: flex-end; }
+    .user-bubble {
+      max-width: 78%; margin: 0; padding: 10px 14px;
+      border: 1px solid #b9cbc3; border-radius: 3px; background: #eef4f1;
+      color: var(--ink); font-size: 14px; line-height: 1.6;
+    }
+
+    /* 思考中：顯示正在做哪一件事，而不是不明的轉圈 */
+    .thinking-row { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; align-items: start; }
+    .thinking-body { padding-top: 3px; }
+    .thinking-title { margin: 0; display: flex; align-items: center; gap: 7px; color: var(--ink-soft); font-size: 13px; font-weight: 600; }
+    .thinking-dots { display: inline-flex; gap: 3px; }
+    .thinking-dots i { width: 4px; height: 4px; border-radius: 50%; background: var(--brand); animation: think-blink 1.1s ease-in-out infinite; }
+    .thinking-dots i:nth-child(2) { animation-delay: .16s; }
+    .thinking-dots i:nth-child(3) { animation-delay: .32s; }
+    @keyframes think-blink { 0%, 70%, 100% { opacity: .25; } 35% { opacity: 1; } }
+
+    .thinking-steps { margin: 8px 0 0; padding: 0; display: grid; gap: 6px; list-style: none; }
+    .thinking-steps li { display: flex; align-items: center; gap: 8px; color: #a4aeaa; font-size: 12px; transition: color .2s ease; }
+    .thinking-mark { width: 6px; height: 6px; flex: none; border-radius: 1px; background: #d5ddd9; }
+    .thinking-steps li.is-done { color: var(--ink-soft); }
+    .thinking-steps li.is-done .thinking-mark { background: var(--brand); }
+    .thinking-steps li.is-active { color: var(--ink); font-weight: 600; }
+    .thinking-steps li.is-active .thinking-mark { background: var(--brand); animation: mark-blink .9s ease-in-out infinite; }
+    @keyframes mark-blink { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
+
+    /* 判定依據展開區 */
+    .decision-main { display: grid; gap: 2px; min-width: 0; }
+    .decision-trace { margin-top: 7px; }
+    .decision-trace summary {
+      display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px;
+      border: 1px solid var(--line-strong); border-radius: 2px; background: #fff;
+      color: #55625b; font-size: 11px; cursor: pointer; list-style: none;
+    }
+    .decision-trace summary::-webkit-details-marker { display: none; }
+    .decision-trace summary::before { content: '＋'; font-size: 10px; }
+    .decision-trace[open] summary::before { content: '－'; }
+    .decision-trace summary:hover { border-color: var(--brand); color: var(--brand); }
+    .decision-trace dl { margin: 8px 0 0; display: grid; gap: 5px; }
+    .decision-trace dl > div { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 8px; font-size: 11px; line-height: 1.6; }
+    .decision-trace dt { color: #7d8a83; }
+    .decision-trace dd { margin: 0; color: #46524c; overflow-wrap: anywhere; }
+
+    /* 常駐輸入列 */
+    .composer { position: sticky; bottom: 0; z-index: 5; padding-top: 12px; background: linear-gradient(to bottom, rgba(243,245,243,0), var(--canvas) 22%); }
+    .composer-suggestions { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+    .composer-suggestions-label { color: #7d8a83; font-size: 11px; font-weight: 600; }
+    .suggestion-chip {
+      min-height: 32px; padding: 6px 11px; border: 1px solid var(--line-strong); border-radius: 2px;
+      color: var(--brand-dark); background: #fff; font-size: 13px; cursor: pointer;
+    }
+    .suggestion-chip:hover:not(:disabled) { border-color: var(--brand); background: var(--brand-pale); }
+    .suggestion-chip:disabled { opacity: .5; cursor: default; }
+
+    .composer-bar { display: flex; gap: 8px; align-items: stretch; }
+    .composer-bar input {
+      flex: 1; min-width: 0; min-height: 48px; padding: 11px 13px;
+      border: 1px solid var(--line-strong); border-radius: 3px; background: #fff;
+      color: var(--ink); font-size: 15px;
+    }
+    .composer-bar input:focus { border-color: var(--brand); outline: 3px solid rgba(11, 90, 74, .16); outline-offset: 0; }
+    .composer-bar input::placeholder { color: #8d9994; }
+    .composer-bar button {
+      width: 48px; min-height: 48px; flex: none; display: grid; place-items: center;
+      border: 1px solid var(--brand); border-radius: 3px; color: #fff; background: var(--brand); cursor: pointer;
+    }
+    .composer-bar button:disabled { border-color: var(--line-strong); color: #a7b1ac; background: #eef1ef; cursor: default; }
+    .composer-hint { margin: 7px 0 0; color: #8a958f; font-size: 11px; line-height: 1.6; }
+
+    /* 事實帳本 */
+    .ledger-card { padding: 15px; }
+    .ledger-count { color: var(--ink-soft); font-size: 11px; font-weight: 600; }
+    .ledger-list { margin: 0; display: grid; gap: 6px; }
+    .ledger-list > div { display: grid; grid-template-columns: 68px minmax(0, 1fr); gap: 8px; font-size: 12px; line-height: 1.6; }
+    .ledger-list dt { color: #7d8a83; }
+    .ledger-list dd { margin: 0; color: var(--ink); font-weight: 600; }
+    .ledger-note { margin: 10px 0 0; color: #8a958f; font-size: 11px; line-height: 1.6; }
+
+    @media (max-width: 560px) {
+      .user-bubble { max-width: 88%; font-size: 14px; }
+      .agent-row, .thinking-row { grid-template-columns: 26px minmax(0, 1fr); gap: 8px; }
+      .composer-hint { display: none; }
+      .supplement-panel, .demo-cases, .completion-actions, .citizen-footer { margin-left: 0; }
+    }
+
+    /* 已回答過的回合退到背景，讓「現在該回答哪一題」一眼可辨 */
+    .agent-gutter { display: block; width: 28px; }
+    .agent-row--past .choices-block,
+    .agent-row--past .upload-target { opacity: .55; }
+    .agent-row--past .choices-block h2 { color: var(--ink-soft); }
+    .agent-row--past .choice-button { border-style: dashed; background: #fbfcfb; }
+
+    /* ── 單畫面逐題（取代聊天串堆疊） ─────────────────────────── */
+    .stage { margin-bottom: 24px; border: 1px solid var(--line); border-radius: 3px; background: #fff; overflow: hidden; }
+    .stage-head { display: flex; align-items: center; gap: 10px; padding: 13px 16px; border-bottom: 1px solid var(--line); background: #f7f9f8; }
+    .stage-head strong { display: block; font-size: 13px; }
+    .stage-head small { display: block; margin-top: 2px; color: var(--ink-soft); font-size: 11px; line-height: 1.5; }
+
+    /* 換題＝換頁：新的一題整組淡入上移，不與前一題並存 */
+    .stage-body { padding: 18px 16px; animation: stage-in .26s ease both; }
+    @keyframes stage-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    .stage-body .block-stack { gap: 12px; }
+    .stage-body .decision-step { background: #fbfcfb; }
+
+    .exchange { margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px dashed var(--line); display: grid; gap: 9px; }
+    .exchange-user { margin: 0; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; color: var(--ink); font-size: 14px; line-height: 1.6; }
+    .exchange-user > span { flex: none; padding: 2px 7px; border: 1px solid var(--line-strong); border-radius: 2px; color: #55625b; background: #f4f6f5; font-size: 11px; }
+    .exchange-note { padding: 11px 13px; border-left: 3px solid var(--brand); border-radius: 0 3px 3px 0; background: #f4f8f6; }
+    .exchange-note p { margin: 0; font-size: 14px; line-height: 1.65; }
+
+    .stage-problem {
+      display: flex; gap: 10px; align-items: flex-start; margin: 0 16px 16px;
+      padding: 12px 13px; border: 1px solid #e0c9a4; border-left: 3px solid var(--orange);
+      border-radius: 3px; background: #fbf5ea;
+    }
+    .stage-problem svg { flex: none; margin-top: 2px; color: var(--orange); }
+    .stage-problem strong { display: block; font-size: 13px; line-height: 1.55; }
+    .stage-problem p { margin: 4px 0 0; color: #6d6250; font-size: 12px; line-height: 1.6; }
+
+    /* 思考面板：單畫面時佔住題目卡的位置，不再是串流裡的一列 */
+    .thinking-panel { display: grid; gap: 14px; padding: 6px 2px 10px; }
+    .thinking-head { display: flex; align-items: center; gap: 12px; }
+    .thinking-title { margin: 0; display: flex; align-items: center; gap: 7px; color: var(--ink-soft); font-size: 12px; font-weight: 600; }
+    .thinking-current { margin: 3px 0 0; font-size: 16px; font-weight: 700; letter-spacing: -.01em; }
+    .thinking-progress { height: 3px; background: #e6ebe8; overflow: hidden; }
+    .thinking-progress span { display: block; height: 100%; background: var(--brand); transition: width .9s linear; }
+    .thinking-steps li { font-size: 13px; }
+
+    /* composer 在題目卡內，不再吸底 */
+    .stage .composer { position: static; padding: 0 16px 16px; background: none; }
+
+    /* ═══════════════════════════════════════════════════════════
+       citizen.css　—　共用變數與基礎樣式（顏色、字體、按鈕）
+       ═══════════════════════════════════════════════════════════ */
+
+    :root {
+      --ink: #18221d;
+      --ink-soft: #5c6862;
+      --line: #d8deda;
+      --line-strong: #c5cec9;
+      --paper: #ffffff;
+      --canvas: #f3f5f3;
+      --brand: #0b5a4a;
+      --brand-dark: #08483c;
+      --brand-pale: #e9f2ee;
+      --blue: #245e8e;
+      --blue-pale: #edf3f7;
+      --green: #28724f;
+      --green-pale: #edf5f0;
+      --orange: #97601a;
+      --orange-pale: #fbf3e7;
+      --red: #9a4843;
+      --red-pale: #f8eeee;
+      color: var(--ink);
+      background: var(--canvas);
+      font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { min-width: 320px; background: var(--canvas); }
+
+    body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--canvas); color: var(--ink); }
+
+    button, textarea, input { font: inherit; }
+    button { color: inherit; }
+    button:focus-visible, textarea:focus-visible, a:focus-visible { outline: 3px solid rgba(23, 105, 170, .28); outline-offset: 2px; }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .app-root { min-height: 100vh; background: var(--canvas); }
+
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      height: 68px;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .header-inner { width: min(1120px, calc(100% - 40px)); height: 100%; margin: auto; display: flex; align-items: center; justify-content: space-between; }
+
+    .brand { min-height: 48px; display: inline-flex; align-items: center; gap: 11px; color: var(--ink); text-decoration: none; }
+    .brand-mark { width: 38px; height: 38px; display: grid; place-items: center; color: #fff; border-radius: 6px; background: var(--brand); }
+    .brand > span:last-child { display: grid; line-height: 1.1; }
+    .brand strong { font-size: 17px; letter-spacing: -.01em; }
+    .brand small { margin-top: 4px; font-size: 11px; color: var(--ink-soft); }
+
+    .header-trust { display: flex; align-items: center; gap: 7px; color: var(--ink-soft); font-size: 13px; }
+    .header-trust svg { color: var(--brand); }
+    .header-actions { display: flex; align-items: center; gap: 12px; }
+    .header-actions > a { min-height: 48px; padding: 7px 12px; display: inline-flex; align-items: center; gap: 6px; color: var(--brand-dark); border: 1px solid var(--line-strong); border-radius: 6px; background: #fff; font-size: 11px; font-weight: 700; text-decoration: none; }
+    .header-actions > a:hover { background: #f4f7f5; border-color: #9daca5; }
+    .demo-pill { margin-left: 7px; padding: 4px 8px; color: #4d5b54; border: 1px solid var(--line-strong); border-radius: 4px; background: #f4f6f5; font: 700 10px/1 system-ui, sans-serif; letter-spacing: .06em; }
+
+    .citizen-shell {
+      width: min(1120px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 42px 0 72px;
+      display: grid;
+      grid-template-columns: minmax(0, 700px) minmax(280px, 360px);
+      gap: 44px;
+      align-items: start;
+    }
+
+    .conversation-column { min-width: 0; }
+    .conversation-intro { margin-bottom: 22px; }
+    .eyebrow { color: var(--brand); font-size: 12px; line-height: 1.2; font-weight: 700; letter-spacing: .055em; }
+    .conversation-intro h1 { margin: 9px 0 9px; font-size: clamp(30px, 3.4vw, 38px); line-height: 1.2; letter-spacing: -.025em; }
+    .conversation-intro > p { margin: 0; color: var(--ink-soft); font-size: 16px; line-height: 1.7; }
+
+    .process-steps { margin: 0 0 28px; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); border-radius: 8px; background: #fff; list-style: none; }
+    .process-steps li { position: relative; min-height: 54px; padding: 10px 14px; display: flex; align-items: center; gap: 9px; color: #7a847f; border-right: 1px solid var(--line); font-size: 12px; }
+    .process-steps li:last-child { border-right: 0; }
+    .process-steps li > span { width: 24px; height: 24px; display: grid; place-items: center; flex: none; color: #67736d; border: 1px solid #bdc7c2; border-radius: 50%; font-size: 11px; font-weight: 700; }
+    .process-steps li.is-current { color: var(--ink); background: #f4f8f6; }
+    .process-steps li.is-current > span { color: #fff; border-color: var(--brand); background: var(--brand); }
+    .process-steps li.is-done { color: #3d5b4f; }
+    .process-steps li.is-done > span { color: var(--brand); border-color: #a7c4b8; background: var(--brand-pale); }
+
+    .message-stream { display: grid; gap: 20px; }
+    .agent-row { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 12px; align-items: start; }
+    .agent-avatar { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid #b9cbc3; border-radius: 6px; color: var(--brand); background: #fff; }
+    .agent-label { margin: 0 0 8px; color: #48564f; font-size: 12px; font-weight: 700; }
+    .agent-message { min-width: 0; }
+    .block-stack { display: grid; gap: 12px; }
+
+    .text-block { padding: 16px 18px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); font-size: 16px; line-height: 1.65; }
+    .text-block--info { border-color: #c9ddeb; background: var(--blue-pale); }
+    .text-block--warning { border-color: #efcf9a; background: var(--orange-pale); }
+    .text-block--success { border-color: #b9dcc8; background: var(--green-pale); }
+
+    .upload-target { width: 100%; min-height: 106px; padding: 18px; display: grid; grid-template-columns: 56px minmax(0, 1fr) 26px; gap: 14px; align-items: center; text-align: left; border: 1px solid #aebbb5; border-radius: 8px; background: #fff; box-shadow: inset 4px 0 0 var(--brand); cursor: pointer; transition: border-color .16s ease, background .16s ease; }
+    .upload-target:hover { border-color: var(--brand); background: #f6f9f7; }
+    .upload-target:disabled { opacity: .6; cursor: progress; }
+    .upload-target > svg { justify-self: end; color: var(--brand); }
+    .upload-icon { width: 56px; height: 56px; display: grid; place-items: center; border-radius: 6px; background: var(--brand); color: #fff; }
+    .upload-copy { display: grid; min-width: 0; }
+    .upload-copy strong { font-size: 17px; }
+    .upload-copy small { margin-top: 4px; color: var(--ink-soft); font-size: 13px; }
+
+    .decision-step { --step-color: var(--blue); display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 11px; align-items: center; padding: 13px 15px; border: 1px solid var(--line); border-left: 3px solid var(--step-color); border-radius: 6px; background: var(--paper); opacity: 0; animation: step-in .24s ease forwards; animation-delay: var(--step-delay); }
+    .decision-step--done { --step-color: var(--green); }
+    .decision-step--warning { --step-color: var(--orange); background: var(--orange-pale); }
+    .decision-icon { width: 27px; height: 27px; display: grid; place-items: center; border-radius: 50%; color: var(--step-color); background: color-mix(in srgb, var(--step-color) 12%, white); font-weight: 800; }
+    .decision-step > span:last-child { display: grid; gap: 2px; }
+    .decision-step strong { font-size: 14px; }
+    .decision-step small { color: var(--ink-soft); font-size: 12px; line-height: 1.45; }
+    .spinner { width: 12px; height: 12px; border: 2px solid #bbd1e1; border-top-color: var(--blue); border-radius: 50%; animation: spin .8s linear infinite; }
+    @keyframes step-in { to { opacity: 1; transform: translateY(0); } from { opacity: 0; transform: translateY(7px); } }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .choices-block { padding: 19px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); }
+    .choices-block h2 { margin: 0 0 14px; font-size: 17px; line-height: 1.45; }
+    .choice-list { display: grid; gap: 9px; }
+    .choice-button { width: 100%; min-height: 58px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 14px; text-align: left; border: 1px solid var(--line-strong); border-radius: 6px; background: #fff; cursor: pointer; transition: border-color .16s ease, background .16s ease; }
+    .choice-button:hover { border-color: var(--brand); background: var(--brand-pale); color: var(--brand-dark); }
+    .choice-button:disabled { opacity: .55; cursor: progress; }
+    .choice-button > span { display: grid; gap: 3px; }
+    .choice-button strong { font-size: 15px; }
+    .choice-button small { color: var(--ink-soft); font-size: 12px; }
+    .choice-button svg { flex: none; color: var(--brand); }
+
+    .result-card { --status: var(--green); --status-pale: var(--green-pale); overflow: hidden; border: 1px solid color-mix(in srgb, var(--status) 34%, white); border-radius: 8px; background: var(--paper); }
+    .result-card--ineligible { --status: var(--red); --status-pale: var(--red-pale); }
+    .result-card--needs_review { --status: var(--orange); --status-pale: var(--orange-pale); }
+    .result-header { padding: 20px; display: flex; gap: 13px; align-items: center; background: var(--status-pale); border-bottom: 1px solid color-mix(in srgb, var(--status) 22%, white); }
+    .result-status-icon { width: 42px; height: 42px; display: grid; place-items: center; flex: none; color: #fff; border-radius: 6px; background: var(--status); font-size: 21px; font-weight: 800; }
+    .result-header .eyebrow { color: var(--status); letter-spacing: .07em; }
+    .result-header h2 { margin: 3px 0 0; font-size: 21px; letter-spacing: -.02em; }
+    .result-section { margin: 0 20px; padding: 18px 0; border-bottom: 1px solid var(--line); }
+    .result-section h3 { margin: 0 0 11px; color: var(--ink-soft); font-size: 12px; letter-spacing: .08em; }
+    .observation-grid { display: flex; flex-wrap: wrap; gap: 7px; }
+    .observation-grid span { padding: 7px 10px; border: 1px solid var(--line); border-radius: 4px; background: #f6f8f7; font-size: 13px; font-weight: 600; }
+    .confidence { margin: 10px 0 0; color: var(--ink-soft); font-size: 11px; }
+    .result-section ul { display: grid; gap: 9px; padding: 0; margin: 0; list-style: none; }
+    .result-section li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 7px; align-items: start; color: #33423c; font-size: 14px; line-height: 1.5; }
+    .result-section li svg { margin-top: 2px; color: var(--status); }
+    .result-suggestion { border: 0; }
+    .result-suggestion p { margin: 0; font-size: 14px; line-height: 1.6; }
+    .special-handling { margin: 0 20px 15px; padding: 11px 12px; display: flex; gap: 8px; align-items: center; color: var(--orange); border-radius: 9px; background: var(--orange-pale); font-size: 13px; }
+    .disclaimer { margin: 0; padding: 13px 20px; display: flex; gap: 8px; align-items: flex-start; color: #51605a; background: #f1f4f2; font-size: 12px; line-height: 1.5; }
+    .disclaimer svg { flex: none; margin-top: 1px; color: var(--brand); }
+
+    .primary-button, .secondary-button { min-height: 50px; padding: 12px 18px; display: inline-flex; align-items: center; justify-content: center; gap: 9px; border-radius: 6px; font-weight: 700; cursor: pointer; transition: border-color .16s ease, background .16s ease; }
+    .primary-button { border: 1px solid var(--brand); color: #fff; background: var(--brand); }
+    .primary-button:hover { border-color: var(--brand-dark); background: var(--brand-dark); }
+    .secondary-button { border: 1px solid var(--line-strong); color: var(--brand-dark); background: var(--paper); }
+    .secondary-button:hover { border-color: var(--brand); background: var(--brand-pale); }
+    .primary-button:disabled { opacity: .6; cursor: progress; transform: none; }
+    .result-action { width: calc(100% - 40px); margin: 4px 20px 20px; }
+    .result-action svg { margin-left: auto; }
+
+    .supplement-panel { margin-left: 48px; padding: 15px 17px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+    .supplement-panel label { display: block; margin-bottom: 8px; font-size: 13px; font-weight: 700; }
+    .supplement-panel label span { margin-left: 5px; color: var(--ink-soft); font-size: 11px; font-weight: 500; }
+    .supplement-panel textarea { width: 100%; min-height: 76px; resize: vertical; padding: 11px 12px; border: 1px solid var(--line-strong); border-radius: 6px; color: var(--ink); background: #fff; font-size: 15px; line-height: 1.5; }
+    .supplement-panel textarea::placeholder { color: #88968f; }
+    .supplement-panel > small { display: block; margin-top: 6px; color: var(--ink-soft); font-size: 11px; }
+
+    .demo-cases { margin: 14px 0 0 48px; padding-top: 25px; border-top: 1px solid var(--line); }
+    .section-heading { margin-bottom: 13px; display: flex; justify-content: space-between; align-items: end; gap: 16px; }
+    .section-heading h2 { margin: 5px 0 0; font-size: 18px; letter-spacing: -.02em; }
+    .fixture-note { padding: 4px 7px; border-radius: 5px; color: var(--ink-soft); background: #e9eeeb; font-size: 10px; font-weight: 650; }
+    .demo-grid { display: grid; gap: 9px; }
+    .demo-card { min-height: 74px; padding: 8px 12px 8px 8px; display: grid; grid-template-columns: 74px minmax(0, 1fr) 20px; gap: 12px; align-items: center; text-align: left; border: 1px solid var(--line); border-radius: 6px; background: #fff; cursor: pointer; transition: border-color .16s ease, background .16s ease; }
+    .demo-card:hover { border-color: #8fb8aa; background: #f7f9f8; }
+    .demo-card img { width: 74px; height: 58px; object-fit: cover; border-radius: 4px; }
+    .demo-card > span { display: grid; gap: 4px; }
+    .demo-card strong { font-size: 14px; }
+    .demo-card small { color: var(--ink-soft); font-size: 11px; }
+    .demo-card svg { color: var(--brand); }
+
+    .busy-row { margin-left: 48px; display: flex; align-items: center; gap: 9px; color: var(--ink-soft); font-size: 12px; }
+    .typing-dots { display: flex; gap: 3px; }
+    .typing-dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--brand); animation: bounce 1s ease-in-out infinite; }
+    .typing-dots i:nth-child(2) { animation-delay: .14s; }
+    .typing-dots i:nth-child(3) { animation-delay: .28s; }
+    @keyframes bounce { 0%, 60%, 100% { transform: translateY(0); opacity: .45; } 30% { transform: translateY(-4px); opacity: 1; } }
+
+    .completion-actions { margin-left: 48px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .completion-actions--three { grid-template-columns: 1.4fr 1fr .7fr; }
+    .completion-actions a { text-decoration: none; }
+    .citizen-footer { margin: 42px 0 0 48px; padding-top: 17px; display: flex; gap: 8px; align-items: flex-start; color: var(--ink-soft); border-top: 1px solid var(--line); font-size: 11px; line-height: 1.5; }
+    .citizen-footer svg { flex: none; }
+
+    .case-aside { position: sticky; top: 104px; display: grid; gap: 14px; }
+    .aside-card { border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+    .preview-card { padding: 16px; }
+    .aside-heading { margin-bottom: 13px; display: flex; justify-content: space-between; align-items: center; color: var(--ink); font-size: 13px; font-weight: 700; }
+    .aside-state { display: inline-flex; gap: 5px; align-items: center; color: var(--green); font-size: 10px; }
+    .aside-state > span { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+    .photo-frame { overflow: hidden; aspect-ratio: 4 / 3; border-radius: 6px; background: #dce4df; }
+    .photo-frame img { width: 100%; height: 100%; display: block; object-fit: cover; }
+    .photo-empty { min-height: 235px; padding: 32px 26px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; border: 1px dashed var(--line-strong); border-radius: 6px; background: #f7f9f8; }
+    .photo-empty > span { width: 58px; height: 58px; margin-bottom: 15px; display: grid; place-items: center; border-radius: 6px; color: var(--brand); background: var(--brand-pale); }
+    .photo-empty strong { font-size: 14px; }
+    .photo-empty p { max-width: 230px; margin: 7px 0 0; color: var(--ink-soft); font-size: 12px; line-height: 1.55; }
+    .case-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 13px; }
+    .case-meta > div { padding: 10px; display: grid; gap: 3px; border-radius: 4px; background: #f1f5f3; }
+    .case-meta small { color: var(--ink-soft); font-size: 9px; }
+    .case-meta strong { overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
+    .privacy-card { padding: 15px; display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; }
+    .privacy-card > svg { color: var(--brand); }
+    .privacy-card strong { display: block; margin-bottom: 4px; font-size: 12px; }
+    .privacy-card p { margin: 0; color: var(--ink-soft); font-size: 11px; line-height: 1.55; }
+
+    @media (max-width: 860px) {
+      .site-header { height: 64px; }
+      .header-inner { width: min(100% - 32px, 700px); }
+      .header-trust > span:not(.demo-pill) { display: none; }
+      .header-actions > a { display: none; }
+      .brand small { display: none; }
+      .citizen-shell { width: min(100% - 32px, 700px); padding: 35px 0 50px; display: flex; flex-direction: column; gap: 26px; }
+      .conversation-column { width: 100%; }
+      .case-aside { position: static; width: 100%; order: -1; }
+      .case-aside--empty { display: none; }
+      .case-aside .privacy-card { display: none; }
+      .preview-card { padding: 11px; }
+      .aside-heading, .photo-empty { display: none; }
+      .photo-frame { aspect-ratio: 16 / 7; }
+      .case-meta { margin-top: 9px; }
+    }
+
+    @media (max-width: 560px) {
+      .header-inner { width: calc(100% - 28px); }
+      .citizen-shell { width: 100%; padding: 28px 16px 42px; }
+      .conversation-intro { margin-bottom: 24px; }
+      .conversation-intro h1 { margin-top: 7px; font-size: 28px; }
+      .conversation-intro > p { font-size: 15px; }
+      .process-steps { margin-bottom: 24px; }
+      .process-steps li { min-height: 58px; padding: 8px; flex-direction: column; justify-content: center; gap: 4px; text-align: center; }
+      .agent-row { grid-template-columns: 32px minmax(0, 1fr); gap: 9px; }
+      .agent-avatar { width: 32px; height: 32px; border-radius: 5px; }
+      .text-block, .choices-block { border-radius: 7px; }
+      .text-block { padding: 14px 15px; font-size: 16px; }
+      .upload-target { min-height: 112px; padding: 14px; grid-template-columns: 48px minmax(0, 1fr) 20px; gap: 11px; border-radius: 7px; }
+      .upload-icon { width: 48px; height: 48px; border-radius: 5px; }
+      .upload-copy strong { font-size: 15px; }
+      .upload-copy small { font-size: 11px; }
+      .choices-block { padding: 15px; }
+      .choice-button { min-height: 60px; }
+      .result-card { border-radius: 7px; }
+      .result-header { padding: 17px; }
+      .result-header h2 { font-size: 19px; }
+      .result-section { margin: 0 17px; }
+      .result-action { width: calc(100% - 34px); margin: 4px 17px 17px; }
+      .disclaimer { padding: 12px 17px; }
+      .supplement-panel, .demo-cases, .busy-row, .completion-actions, .citizen-footer { margin-left: 41px; }
+      .supplement-panel { padding: 13px; }
+      .demo-card { grid-template-columns: 66px minmax(0, 1fr) 18px; }
+      .demo-card img { width: 66px; height: 54px; }
+      .completion-actions, .completion-actions--three { grid-template-columns: 1fr; }
+      .photo-frame { aspect-ratio: 16 / 8; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
+    }
+
+    /* ── 公文式收斂：降低行銷語氣、提高資訊密度 ───────────────────── */
+
+    .doc-label {
+      display: inline-block; margin-bottom: 10px; padding: 3px 8px;
+      border: 1px solid var(--line-strong); border-radius: 2px; background: #f2f5f3;
+      color: #4a5751; font-size: 12px; font-weight: 600; letter-spacing: .01em;
+    }
+    .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .01em; }
+
+    .conversation-intro { margin-bottom: 20px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+    .conversation-intro h1 { margin: 0 0 8px; font-size: clamp(23px, 2.2vw, 27px); line-height: 1.35; letter-spacing: 0; font-weight: 700; }
+    .conversation-intro > p { font-size: 15px; line-height: 1.75; }
+
+    .site-header { height: 60px; }
+    .brand-mark { width: 34px; height: 34px; border-radius: 3px; }
+    .brand strong { font-size: 16px; letter-spacing: 0; }
+    .header-actions > a, .demo-pill, .fixture-note { border-radius: 2px; }
+
+    .process-steps { border-radius: 3px; }
+    .process-steps li > span { border-radius: 2px; }
+
+    .agent-avatar { border-radius: 3px; }
+    .agent-label {
+      margin-bottom: 9px; padding-bottom: 7px; border-bottom: 1px solid var(--line);
+      color: #4a5751; font-size: 12px; letter-spacing: .01em;
+    }
+
+    .text-block, .choices-block, .upload-target, .decision-step,
+    .result-card, .supplement-panel, .demo-card, .aside-card,
+    .primary-button, .secondary-button, .choice-button { border-radius: 3px; }
+    .upload-icon, .result-status-icon, .photo-frame, .photo-empty,
+    .photo-empty > span, .demo-card img, .case-meta > div, .special-handling { border-radius: 3px; }
+    .decision-icon { border-radius: 2px; }
+    .observation-grid span { border-radius: 2px; }
+
+    .text-block { font-size: 15px; line-height: 1.75; }
+    .choices-block h2 { font-size: 16px; }
+    .upload-copy strong { font-size: 16px; }
+    .result-header h2 { font-size: 19px; letter-spacing: 0; }
+    .result-section h3 { color: #4a5751; font-size: 12px; font-weight: 700; letter-spacing: .02em; }
+
+    .busy-row { margin: 0 0 0 48px; display: flex; align-items: center; gap: 10px; color: var(--ink-soft); font-size: 12px; }
+    .busy-bar { position: relative; width: 74px; height: 3px; overflow: hidden; background: #e2e8e5; }
+    .busy-bar::after { content: ''; position: absolute; inset: 0 auto 0 0; width: 34%; background: var(--brand); animation: busy-slide 1.1s ease-in-out infinite; }
+    @keyframes busy-slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(295%); } }
+
+    .demo-cases { padding-top: 22px; }
+    .section-heading { align-items: center; margin-bottom: 6px; }
+    .section-heading h2 { margin: 0; font-size: 16px; letter-spacing: 0; }
+    .section-note { margin: 0 0 12px; color: var(--ink-soft); font-size: 12px; line-height: 1.6; }
+
+    .citizen-footer { margin-top: 34px; padding-top: 15px; align-items: flex-start; font-size: 12px; line-height: 1.6; }
+
+    @media (max-width: 560px) {
+      .conversation-intro h1 { font-size: 22px; }
+      .conversation-intro > p { font-size: 14px; }
+      .supplement-panel, .demo-cases, .busy-row, .completion-actions, .citizen-footer { margin-left: 41px; }
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       dashboard.css　—　班長端：調度台版面、地圖、任務清單、圓餅圖
+       ═══════════════════════════════════════════════════════════ */
+
+    .dashboard-root { min-height: 100vh; color: #17231f; background: #f3f6f4; }
+    .dashboard-header { height: 70px; border-bottom: 1px solid #d9e2dd; background: rgba(255,255,255,.94); }
+    .dashboard-header-inner { width: min(1240px, calc(100% - 40px)); height: 100%; margin: auto; display: flex; align-items: center; justify-content: space-between; }
+    .dispatch-brand { min-height: 48px; display: flex; align-items: center; gap: 11px; color: inherit; text-decoration: none; }
+    .dispatch-brand > span { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 9px; color: #fff; background: #176b58; }
+    .dispatch-brand > div { display: grid; gap: 2px; }
+    .dispatch-brand strong { font-size: 16px; }
+    .dispatch-brand small { color: #65746d; font-size: 10px; }
+    .dashboard-header nav { display: flex; align-items: center; gap: 10px; }
+    .dashboard-header nav a, .dashboard-header nav button { min-height: 48px; padding: 8px 13px; display: inline-flex; align-items: center; gap: 7px; border: 1px solid #d5dfda; border-radius: 9px; color: #315046; background: #fff; font-size: 12px; font-weight: 700; text-decoration: none; cursor: pointer; }
+    .dashboard-header nav a:hover, .dashboard-header nav button:hover { border-color: #176b58; background: #eaf5f1; }
+    .dashboard-shell { width: min(1240px, calc(100% - 40px)); margin: auto; padding: 42px 0 70px; }
+    .dashboard-title-row { display: flex; align-items: end; justify-content: space-between; gap: 24px; }
+    .dashboard-title-row h1 { margin: 7px 0 7px; font-size: 34px; letter-spacing: -.04em; }
+    .dashboard-title-row p { margin: 0; color: #607068; font-size: 14px; }
+    .api-status { padding: 7px 10px; display: flex; align-items: center; gap: 7px; border: 1px solid #bad9cb; border-radius: 8px; color: #176b58; background: #eaf6f0; font-size: 11px; font-weight: 700; }
+    .api-status i { width: 7px; height: 7px; border-radius: 50%; background: #25a36b; }
+    .api-status--offline { border-color: #e6cc9d; color: #915711; background: #fff6e7; }
+    .api-status--offline i { background: #d8831d; }
+    .metric-grid { margin: 28px 0 20px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .metric-grid article { min-width: 0; padding: 17px; display: grid; grid-template-columns: 42px minmax(0,1fr); gap: 12px; border: 1px solid #dce4df; border-radius: 13px; background: #fff; box-shadow: 0 5px 18px rgba(28,52,44,.035); }
+    .metric-icon { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 10px; font-weight: 800; }
+    .metric-icon--blue { color: #1769aa; background: #eaf3fb; }.metric-icon--green { color: #176b58; background: #e7f3ee; }.metric-icon--orange { color: #a65d06; background: #fff2df; }.metric-icon--red { color: #ae4038; background: #fbecea; }
+    .metric-grid article > div { min-width: 0; }
+    .metric-grid small { display: block; color: #637169; font-size: 10px; font-weight: 700; }
+    .metric-grid strong { display: block; margin: 2px 0; font-size: 25px; letter-spacing: -.03em; }
+    .metric-grid em { color: #637169; font-size: 11px; font-style: normal; }
+    .metric-grid p { margin: 0; overflow: hidden; color: #849189; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    .recommendation-banner { margin-bottom: 20px; padding: 17px 18px; display: grid; grid-template-columns: 46px minmax(0,1fr) auto; gap: 15px; align-items: center; border: 1px solid #efc887; border-radius: 13px; background: #fff6e6; }
+    .recommendation-banner--accepted { border-color: #a8d5bf; background: #edf8f2; }
+    .recommendation-alert { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 12px; color: #fff; background: #d77a15; font-size: 22px; font-weight: 800; }
+    .recommendation-banner--accepted .recommendation-alert { background: #198754; }
+    .recommendation-banner h2 { margin: 3px 0; font-size: 17px; }.recommendation-banner p { margin: 0; color: #674d2f; font-size: 12px; line-height: 1.5; }
+    .recommendation-banner button { min-height: 42px; padding: 9px 14px; display: inline-flex; align-items: center; gap: 9px; border: 0; border-radius: 9px; color: #fff; background: #176b58; font-size: 12px; font-weight: 750; cursor: pointer; }
+    .recommendation-empty { margin-bottom: 20px; padding: 16px; display: flex; align-items: center; gap: 12px; border: 1px dashed #b8cbc2; border-radius: 13px; background: #f9fbfa; }.recommendation-empty > svg { color: #176b58; }.recommendation-empty div { flex: 1; }.recommendation-empty strong { font-size: 13px; }.recommendation-empty p { margin: 3px 0 0; color: #65746d; font-size: 11px; }.recommendation-empty a { color: #176b58; font-size: 12px; font-weight: 700; }
+    .dashboard-grid { display: grid; grid-template-columns: minmax(0,1.35fr) minmax(330px,.75fr); gap: 18px; align-items: start; }
+    .route-panel, .map-panel, .trace-panel { border: 1px solid #dce4df; border-radius: 14px; background: #fff; box-shadow: 0 7px 25px rgba(28,52,44,.04); }
+    .route-panel { overflow: hidden; }.panel-header { padding: 18px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e3e9e5; }.panel-header h2 { margin: 5px 0 0; font-size: 18px; }.panel-header > span { padding: 5px 8px; border-radius: 6px; color: #176b58; background: #e8f4ef; font-size: 10px; font-weight: 750; }
+    .panel-header--compact { padding: 15px 16px; }.panel-header--compact h2 { font-size: 15px; }.panel-header--compact > svg { color: #176b58; }
+    .district-tabs { padding: 12px; display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; background: #f7f9f8; border-bottom: 1px solid #e3e9e5; }
+    .district-tabs button { min-height: 57px; padding: 9px 11px; display: grid; gap: 3px; text-align: left; border: 1px solid transparent; border-radius: 9px; background: transparent; cursor: pointer; }.district-tabs button[aria-selected="true"] { border-color: #96c1b0; background: #fff; box-shadow: 0 3px 12px rgba(30,80,62,.07); }.district-tabs strong { font-size: 12px; }.district-tabs small { color: #6d7c74; font-size: 9px; }
+    .route-list { max-height: 720px; padding: 10px 12px 14px; overflow-y: auto; }
+    .route-card { min-height: 82px; padding: 12px 10px; display: grid; grid-template-columns: 34px minmax(0,1fr) 20px; gap: 11px; align-items: center; border-bottom: 1px solid #edf1ee; }.route-card:last-child { border-bottom: 0; }.stop-number { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; color: #fff; background: #176b58; font-size: 11px; font-weight: 800; }.route-card-main { min-width: 0; }.route-card-main > div:first-child { display: flex; justify-content: space-between; gap: 8px; }.route-card-main strong { font-size: 13px; }.route-card-main > div:first-child span { color: #849189; font-size: 9px; }.route-card-main p { margin: 4px 0 7px; color: #5f6f67; font-size: 11px; }.route-tags { display: flex; flex-wrap: wrap; gap: 5px; }.tag { padding: 3px 6px; border-radius: 5px; color: #587067; background: #edf3f0; font-size: 8px; font-weight: 700; }.tag--warning { color: #9a5a0b; background: #fff0d8; }.tag--special { color: #1769aa; background: #e9f3fb; }.route-card > svg { color: #829089; }
+    .dashboard-aside { display: grid; gap: 18px; }.map-panel { overflow: hidden; }.map-panel img { width: 100%; height: auto; display: block; background: #edf1ed; }.map-panel > p { margin: 0; padding: 10px 14px; display: flex; align-items: center; gap: 6px; color: #6b7972; font-size: 9px; }.map-panel > p span, .map-panel > p i { width: 8px; height: 8px; border-radius: 50%; background: #176b58; }.map-panel > p i { margin-left: 8px; background: #e57a18; }.map-panel > p b { font-weight: 600; }
+    .trace-panel { overflow: hidden; }.trace-list { padding: 15px 16px 18px; }.trace-step { position: relative; display: grid; grid-template-columns: 28px minmax(0,1fr); gap: 10px; padding-bottom: 15px; }.trace-step:last-child { padding-bottom: 0; }.trace-step > span { width: 26px; height: 26px; display: grid; place-items: center; z-index: 1; border-radius: 50%; color: #176b58; background: #e6f3ed; font-size: 12px; font-weight: 800; }.trace-step--warning > span { color: #a65d06; background: #fff0d8; }.trace-step > i { position: absolute; left: 12px; top: 26px; width: 2px; height: calc(100% - 22px); background: #dbe6e0; }.trace-step strong { font-size: 12px; }.trace-step p { margin: 3px 0 0; color: #617069; font-size: 10px; line-height: 1.5; }.trace-placeholder { padding: 20px; color: #718078; font-size: 11px; }
+    @media (max-width: 950px) { .metric-grid { grid-template-columns: repeat(2,1fr); }.dashboard-grid { grid-template-columns: 1fr; }.dashboard-aside { grid-template-columns: 1fr 1fr; }.route-list { max-height: none; } }
+    @media (max-width: 640px) { .dashboard-header { height: 62px; }.dashboard-header-inner, .dashboard-shell { width: calc(100% - 28px); }.dispatch-brand small, .dashboard-header nav a { display: none; }.dashboard-shell { padding-top: 27px; }.dashboard-title-row { display: grid; }.dashboard-title-row h1 { font-size: 27px; }.api-status { justify-self: start; }.metric-grid { grid-template-columns: 1fr 1fr; }.metric-grid article { grid-template-columns: 36px minmax(0,1fr); padding: 13px; }.metric-icon { width: 36px; height: 36px; }.recommendation-banner { grid-template-columns: 40px minmax(0,1fr); }.recommendation-alert { width: 40px; height: 40px; }.recommendation-banner button { grid-column: 1 / -1; width: 100%; justify-content: center; }.district-tabs { overflow-x: auto; grid-template-columns: repeat(3,minmax(120px,1fr)); }.dashboard-aside { grid-template-columns: 1fr; } }
+
+    /* Claude Design: restrained municipal operations theme */
+    .dashboard-root { color: var(--ink); background: var(--canvas); }
+    .dashboard-header { height: 68px; border-bottom-color: var(--line); background: #fff; }
+    .dispatch-brand > span { border-radius: 6px; background: var(--brand); }
+    .dispatch-brand strong { font-size: 16px; letter-spacing: -.01em; }
+    .dispatch-brand small { color: var(--ink-soft); font-size: 10px; }
+    .dashboard-header nav a,
+    .dashboard-header nav button { border-color: var(--line-strong); border-radius: 6px; color: var(--brand-dark); background: #fff; }
+    .dashboard-header nav a:hover,
+    .dashboard-header nav button:hover { border-color: #9daca5; background: #f4f7f5; }
+
+    .dashboard-shell { padding-top: 36px; }
+    .dashboard-title-row h1 { margin: 8px 0 6px; font-size: 32px; letter-spacing: -.025em; }
+    .dashboard-title-row p { color: var(--ink-soft); font-size: 14px; }
+    .api-status { border-color: #b5cdc2; border-radius: 4px; color: var(--brand); background: #f1f7f4; }
+    .api-status--offline { border-color: #dfc99f; color: #815517; background: #fbf5ea; }
+
+    .metric-grid { overflow: hidden; margin-top: 24px; gap: 0; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+    .metric-grid article { padding: 18px; border: 0; border-right: 1px solid var(--line); border-radius: 0; box-shadow: none; }
+    .metric-grid article:last-child { border-right: 0; }
+    .metric-icon { border-radius: 5px; }
+    .metric-icon--blue,
+    .metric-icon--green,
+    .metric-icon--orange,
+    .metric-icon--red { color: var(--brand); background: #eef3f0; }
+    .metric-icon--orange { color: var(--orange); background: var(--orange-pale); }
+    .metric-icon--red { color: var(--red); background: var(--red-pale); }
+    .metric-grid small { color: #59665f; font-size: 11px; }
+    .metric-grid strong { margin: 3px 0; font-size: 26px; }
+    .metric-grid p { color: #78847e; font-size: 10px; }
+
+    .recommendation-banner { padding: 17px 18px; border: 1px solid #d8c49d; border-left: 4px solid var(--orange); border-radius: 6px; background: #fff; }
+    .recommendation-banner--accepted { border-color: #b7d0c4; border-left: 4px solid var(--green); background: #fff; }
+    .recommendation-alert { width: 42px; height: 42px; border-radius: 5px; background: var(--orange); }
+    .recommendation-banner--accepted .recommendation-alert { background: var(--green); }
+    .recommendation-banner h2 { font-size: 17px; }
+    .recommendation-banner p { color: #665744; font-size: 12px; }
+    .recommendation-banner button { min-height: 48px; border-radius: 6px; background: var(--brand); }
+    .recommendation-empty { border-color: var(--line-strong); border-radius: 6px; background: #fff; }
+
+    .dashboard-grid { gap: 16px; }
+    .route-panel,
+    .map-panel,
+    .trace-panel { border-color: var(--line); border-radius: 8px; box-shadow: none; }
+    .panel-header { padding: 18px 20px; border-bottom-color: var(--line); }
+    .panel-header h2 { font-size: 18px; letter-spacing: -.01em; }
+    .panel-header > span { border-radius: 4px; color: var(--brand); background: var(--brand-pale); }
+    .panel-header--compact > svg { color: var(--brand); }
+
+    .district-tabs { padding: 0; gap: 0; border-bottom-color: var(--line); background: #f4f6f5; }
+    .district-tabs button { min-height: 62px; padding: 11px 14px; border: 0; border-right: 1px solid var(--line); border-radius: 0; }
+    .district-tabs button:last-child { border-right: 0; }
+    .district-tabs button[aria-selected="true"] { color: var(--brand-dark); border-color: var(--line); border-bottom: 3px solid var(--brand); background: #fff; box-shadow: none; }
+    .district-tabs strong { font-size: 13px; }
+    .district-tabs small { font-size: 10px; }
+
+    .route-list { padding: 4px 16px 10px; }
+    .route-card { min-height: 88px; padding: 14px 4px; border-bottom-color: #e6ebe8; }
+    .stop-number { border-radius: 5px; background: var(--brand); }
+    .route-card-main strong { font-size: 14px; }
+    .route-card-main > div:first-child span { font-size: 10px; }
+    .route-card-main p { color: var(--ink-soft); font-size: 12px; }
+    .tag { border: 1px solid #dbe3df; border-radius: 3px; color: #52645b; background: #f4f7f5; font-size: 9px; }
+    .tag--warning { border-color: #ead2aa; color: #895816; background: #fbf3e6; }
+    .tag--special { border-color: #cbdce8; color: #275e88; background: #f0f5f8; }
+
+    .dashboard-aside { gap: 16px; }
+    .map-panel > p { font-size: 10px; }
+    .trace-list { padding: 17px 18px 20px; }
+    .trace-step { grid-template-columns: 30px minmax(0,1fr); padding-bottom: 17px; }
+    .trace-step > span { width: 28px; height: 28px; border-radius: 5px; color: var(--brand); background: var(--brand-pale); }
+    .trace-step--warning > span { color: var(--orange); background: var(--orange-pale); }
+    .trace-step > i { left: 13px; top: 28px; background: var(--line); }
+    .trace-step strong { font-size: 13px; }
+    .trace-step p { color: var(--ink-soft); font-size: 11px; }
+
+    @media (max-width: 950px) {
+      .metric-grid { gap: 0; }
+      .metric-grid article:nth-child(2) { border-right: 0; }
+      .metric-grid article:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+    }
+
+    @media (max-width: 640px) {
+      .dashboard-header { height: 62px; }
+      .dashboard-shell { padding-top: 26px; }
+      .dashboard-title-row h1 { font-size: 27px; }
+      .metric-grid article { min-height: 118px; padding: 14px 12px; }
+      .metric-grid strong { font-size: 24px; }
+      .recommendation-banner { grid-template-columns: 40px minmax(0,1fr); }
+      .recommendation-banner button { grid-column: 1 / -1; }
+      .district-tabs { padding: 0; }
+    }
+
+    /* ── 公文式收斂：調度作業台 ──────────────────────────────── */
+
+    .dashboard-header { height: 60px; }
+    .dispatch-brand > span { width: 34px; height: 34px; border-radius: 3px; }
+    .dashboard-header nav a, .dashboard-header nav button { border-radius: 2px; }
+
+    .dashboard-shell { padding: 26px 0 0; }
+    .dashboard-title-row { align-items: flex-start; }
+    .dashboard-title-row h1 { margin: 0 0 10px; font-size: 26px; line-height: 1.3; letter-spacing: 0; font-weight: 700; }
+    .doc-meta { margin: 0; display: flex; flex-wrap: wrap; gap: 0 8px; color: var(--ink-soft); font-size: 12px; }
+    .doc-meta span:not(:last-child)::after { content: '｜'; margin-left: 8px; color: #b7c0bb; }
+    .api-status { border-radius: 2px; }
+
+    .metric-grid { margin-top: 20px; border-radius: 3px; grid-template-columns: repeat(4, 1fr); }
+    .metric-grid article { display: block; padding: 15px 17px; }
+    .metric-grid small { color: #59665f; font-size: 12px; font-weight: 600; }
+    .metric-grid strong { margin: 6px 0 4px; font-size: 27px; font-variant-numeric: tabular-nums; }
+    .metric-grid em { font-size: 12px; }
+    .metric-grid p { color: #78847e; font-size: 11px; }
+
+    .recommendation-banner { margin: 16px 0 18px; border-radius: 3px; align-items: start; }
+    .recommendation-banner .doc-label { margin-bottom: 6px; }
+    .recommendation-alert { border-radius: 2px; }
+    .recommendation-banner h2 { margin: 0 0 5px; font-size: 16px; letter-spacing: 0; }
+    .recommendation-banner button { border-radius: 2px; align-self: center; }
+    .recommendation-empty { border-radius: 3px; }
+
+    .route-panel, .map-panel, .trace-panel, .chart-panel { border: 1px solid var(--line); border-radius: 3px; background: #fff; }
+    .panel-header { padding: 14px 18px; align-items: center; }
+    .panel-header h2 { margin: 0; font-size: 16px; letter-spacing: 0; }
+    .panel-header > span { border-radius: 2px; font-size: 11px; }
+    .panel-header--compact { padding: 12px 16px; }
+    .panel-header--compact h2 { font-size: 14px; }
+
+    .district-tabs button[aria-selected="true"] { border-bottom-width: 2px; }
+
+    /* 站點清單改為表格式，提高單頁可讀筆數 */
+    .route-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    .route-table thead th {
+      padding: 9px 10px; border-bottom: 1px solid var(--line); background: #f7f9f8;
+      color: #5d6a63; font-size: 11px; font-weight: 600; text-align: left; white-space: nowrap;
+    }
+    .route-table thead th:first-child { padding-left: 18px; width: 62px; }
+    .route-table thead th:nth-child(2) { width: 20%; }
+    .route-table thead th:nth-child(4) { width: 30%; }
+    .route-table thead th:last-child { width: 88px; padding-right: 18px; text-align: right; }
+    .route-table tbody tr { border-bottom: 1px solid #eef1ef; }
+    .route-table tbody tr:last-child { border-bottom: 0; }
+    .route-table tbody tr:hover { background: #f7f9f8; }
+    .route-table td { padding: 10px; font-size: 13px; vertical-align: middle; }
+    .route-table td:first-child { padding-left: 18px; }
+    .route-table td:last-child { padding-right: 18px; }
+    .stop-number { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 2px; color: #fff; background: var(--brand); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .route-item { font-weight: 600; }
+    .route-addr { color: var(--ink-soft); }
+    .route-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+    .route-id { color: #8a958f; font-size: 11px; text-align: right; font-variant-numeric: tabular-nums; }
+    .tag { border-radius: 2px; font-size: 10px; }
+
+    .trace-step > span { border-radius: 2px; }
+    .trace-list { padding: 15px 16px 17px; }
+
+    .gov-footer { margin-top: 46px; }
+
+    @media (max-width: 950px) {
+      .dashboard-aside { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 760px) {
+      .route-table, .route-table tbody, .route-table tr, .route-table td { display: block; width: auto; }
+      .route-table thead { display: none; }
+      .route-table tbody tr { padding: 12px 16px; display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 4px 10px; }
+      .route-table td { padding: 0; }
+      .route-table td:first-child { grid-row: span 3; padding: 0; }
+      .route-table .route-id { text-align: left; }
+    }
+
+    @media (max-width: 640px) {
+      .metric-grid { grid-template-columns: 1fr 1fr; }
+      .metric-grid article { min-height: 0; padding: 13px 14px; }
+      .metric-grid strong { font-size: 23px; }
+      .dashboard-title-row h1 { font-size: 22px; }
+    }
+
+    /* 表格欄寬與統計範圍切換 */
+    .route-table thead th:nth-child(2) { width: 22%; }
+    .route-table thead th:nth-child(3) { width: auto; }
+    .route-table thead th:nth-child(4) { width: 27%; }
+    .route-table thead th:last-child { width: 96px; }
+    .route-id { white-space: nowrap; }
+    .route-item, .route-addr { overflow-wrap: anywhere; }
+
+    .scope-switch { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 2px; overflow: hidden; }
+    .scope-switch button {
+      min-height: 26px; padding: 4px 9px; border: 0; border-right: 1px solid var(--line-strong);
+      color: #55625b; background: #fff; font-size: 11px; font-weight: 600; cursor: pointer;
+    }
+    .scope-switch button:last-child { border-right: 0; }
+    .scope-switch button[aria-pressed="true"] { color: #fff; background: var(--brand); }
+
+    .donut-note { margin: 0; padding: 2px 0 10px; color: #7d8a83; font-size: 11px; line-height: 1.6; }
+
+    @media (max-width: 760px) {
+      .route-table tbody tr { grid-template-columns: 26px minmax(0, 1fr); }
+      .route-id { text-align: left; }
+    }
+
+    @media (max-width: 760px) {
+      .route-table td:first-child { grid-row: span 4; align-self: start; }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- 調度台：上方地圖與路線、左側任務清單、右側處理類別圓餅圖與判定紀錄。 -->
+
+  <div class="dashboard-root">
+
+    <!-- 機關識別帶：機關全銜、系統名稱、原型展示標記 -->
+    <div class="gov-banner">
+      <div class="gov-banner-inner"><span class="gov-banner-agency">臺北市政府環境保護局</span><span class="gov-banner-divider" aria-hidden="true"></span><span class="gov-banner-system">大型廢棄物收運調度系統</span><span class="gov-banner-flag">原型展示</span></div>
+    </div>
+
+    <!-- 頁首：品牌標記、切換到民眾端、重新整理 -->
+    <header class="dashboard-header">
+      <div class="dashboard-header-inner"><a href="/dashboard" class="dispatch-brand"><span><svg width="100%" height="100%" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true" focusable="false"><path d="M4 4h14v10h10v14H4z"></path><rect x="19.5" y="5.5" width="7" height="7"></rect></svg></span>
+          <div><strong>CityTask 調度台</strong><small>清潔隊班長作業系統</small></div>
+        </a>
+        <nav><a href="/">民眾送件</a><button type="button"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20 7v5h-5"></path>
+              <path d="M18.2 16a8 8 0 1 1 .8-9l1 5"></path>
+            </svg>更新資料</button></nav>
+      </div>
+    </header>
+
+    <!-- 主要內容：標題列、指標卡、建議橫幅、地圖、清單與圖表 -->
+    <main class="dashboard-shell">
+
+      <!-- 標題列：作業日期、班次數、資料來源 -->
+      <section class="dashboard-title-row">
+        <div>
+          <h1>今日清運作業</h1>
+          <p class="doc-meta"><span>作業日期 2026/08/17</span><span>行政區班次 3</span><span>資料來源 排程服務</span></p>
+        </div><span class="api-status api-status--offline"><i></i>離線 Demo fixture</span>
+      </section>
+
+      <!-- 指標卡：案件池、今日已排、待人工判定、載重 -->
+      <section class="metric-grid" aria-label="今日案件摘要">
+        <article><small>案件池</small><strong>29 <em>件</em></strong>
+          <p>含現場新增案件</p>
+        </article>
+        <article><small>今日已排</small><strong>28 <em>件</em></strong>
+          <p>3 個行政區班次</p>
+        </article>
+        <article><small>待人工判定</small><strong>1 <em>件</em></strong>
+          <p>保留班長裁量</p>
+        </article>
+        <article><small>大安區載重</small><strong>96<em>%</em></strong>
+          <p>接近容量上限</p>
+        </article>
+      </section>
+
+      <!-- 建議橫幅：新案件待班長確認 -->
+      <section class="recommendation-banner ">
+        <div class="recommendation-alert">!</div>
+        <div><span class="doc-label">新案件待確認</span>
+          <h2>CASE-029　大安區</h2>
+          <p>若插入今日路線，載重將達 103%。系統建議改排明日第 2 站。</p>
+        </div><button type="button">接受建議<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 12h14"></path>
+            <path d="m14 7 5 5-5 5"></path>
+          </svg></button>
+      </section>
+
+      <!-- 路線圖：目前為靜態示意，串接 Google Maps 後改為即時路徑 -->
+      <section class="route-map-panel">
+        <div class="panel-header panel-header--compact">
+          <h2>大安區今日路線</h2>
+          <div class="route-map-meta"><span class="map-badge">靜態示意</span><span>9 站</span></div>
+        </div>
+
+        <!-- 站點與路徑：座標依案件經緯度換算，非任意排列 -->
+        <div class="route-map-canvas" data-provider="placeholder"><svg viewBox="0 0 1000 340" role="img" aria-label="大安區今日清運路線示意圖，共 9 站">
+            <defs>
+              <pattern id="street-grid" width="72" height="72" patternUnits="userSpaceOnUse">
+                <rect width="72" height="72" fill="#eef1ee"></rect>
+                <path d="M0 36h72M36 0v72" stroke="#ffffff" stroke-width="9"></path>
+              </pattern>
+            </defs>
+            <rect width="1000" height="340" fill="url(#street-grid)"></rect>
+            <path d="M 397.600000000084 191.66153846156107 C 412.6974358975102 197.2410256410477, 451.42564102565393 214.96410256412085, 488.18461538464123 225.1384615384809 C 524.9435897436285 235.31282051284094, 584.3487179488717 260.2564102564461, 618.1538461540076 252.70769230772135 C 651.9589743591436 245.15897435899657, 689.702564102639 206.4307692307479, 691.0153846154567 179.84615384613232 C 692.3282051282744 153.26153846151675, 656.882051282198 115.18974358977015, 626.0307692309134 93.20000000002798 C 595.1794871796288 71.21025641028582, 543.3230769231687 44.29743589743087, 505.90769230774936 47.90769230767939 C 468.49230769233 51.51794871792791, 434.03076923071524 115.84615384613232, 401.538461538397 114.86153846151909 C 369.0461538460787 113.87692307690585, 326.379487179482 11.47692307691985, 310.9538461538397 42 C 295.52820512819744 72.52307692308015, 309.31282051275934 255.33333333333334, 308.9846153845433 298" fill="none" stroke="#ffffff" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"></path>
+            <path d="M 397.600000000084 191.66153846156107 C 412.6974358975102 197.2410256410477, 451.42564102565393 214.96410256412085, 488.18461538464123 225.1384615384809 C 524.9435897436285 235.31282051284094, 584.3487179488717 260.2564102564461, 618.1538461540076 252.70769230772135 C 651.9589743591436 245.15897435899657, 689.702564102639 206.4307692307479, 691.0153846154567 179.84615384613232 C 692.3282051282744 153.26153846151675, 656.882051282198 115.18974358977015, 626.0307692309134 93.20000000002798 C 595.1794871796288 71.21025641028582, 543.3230769231687 44.29743589743087, 505.90769230774936 47.90769230767939 C 468.49230769233 51.51794871792791, 434.03076923071524 115.84615384613232, 401.538461538397 114.86153846151909 C 369.0461538460787 113.87692307690585, 326.379487179482 11.47692307691985, 310.9538461538397 42 C 295.52820512819744 72.52307692308015, 309.31282051275934 255.33333333333334, 308.9846153845433 298" fill="none" stroke="var(--brand)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
+            <g class="route-pin route-pin--new" transform="translate(529.5384615384669 193.6307692307875)">
+              <circle r="17" fill="#ffffff"></circle>
+              <circle r="14" fill="#c2610b"></circle><text y="5" text-anchor="middle">＋</text><text class="route-pin-label" x="21" y="5">新案件</text>
+            </g>
+            <g class="route-pin" transform="translate(397.600000000084 191.66153846156107)">
+              <circle r="16" fill="#ffffff"></circle>
+              <circle r="13" fill="var(--brand)"></circle><text y="5" text-anchor="middle">1</text>
+              <title>第 1 站　沙發 × 1　大安區 Demo 路 1 號</title>
+            </g>
+            <g class="route-pin" transform="translate(488.18461538464123 225.1384615384809)">
+              <circle r="16" fill="#ffffff"></circle>
+              <circle r="13" fill="var(--brand)"></circle><text y="5" text-anchor="middle">2</text>
+              <title>第 2 站　櫥櫃 × 1　大安區 Demo 路 2 號</title>
+            </g>
+            <g class="route-pin" transform="translate(618.1538461540076 252.70769230772135)">
+              <circle r="16" fill="#ffffff"></circle>
+              <circle r="13" fill="var(--brand)"></circle><text y="5" text-anchor="middle">3</text>
+              <title>第 3 站　床組 × 1　大安區 Demo 路 3 號</title>
+            </g>
+            <g class="route-pin" transform="translate(691.0153846154567 179.84615384613232)">
+              <circle r="16" fill="#ffffff"></circle>
+              <circle r="13" fill="var(--brand)"></circle><text y="5" text-anchor="middle">4</text>
+              <title>第 4 站　電冰箱 × 1　大安區 Demo 路 4 號</title>
+            </g>
+            <g class="route-pin" transform="translate(626.0307692309134 93.20000000002798)">
+              <circle r="16" fill="#ffffff"></circle>
+              <circle r="13" fill="var(--brand)"></circle><text y="5" text-anchor="middle">5</text>
+              <title>第 5 站　桌椅 × 1　大安區 Demo 路 5 號</title>
+            </g>
+            <g class="route-pin" transform="translate(505.90769230774936 47.90769230767939)">
+              <circle r="16" fill="#ffffff"></circle>
+              <circle r="13" fill="var(--brand)"></circle><text y="5" text-anchor="middle">6</text>
+              <title>第 6 站　洗衣機 × 1　大安區 Demo 路 6 號</title>
+            </g>
+            <g class="route-pin" transform="translate(401.538461538397 114.86153846151909)">
+              <circle r="16" fill="#ffffff"></circle>
+              <circle r="13" fill="var(--brand)"></circle><text y="5" text-anchor="middle">7</text>
+              <title>第 7 站　冷氣機 × 1　大安區 Demo 路 7 號</title>
+            </g>
+            <g class="route-pin" transform="translate(310.9538461538397 42)">
+              <circle r="16" fill="#ffffff"></circle>
+              <circle r="13" fill="var(--brand)"></circle><text y="5" text-anchor="middle">8</text>
+              <title>第 8 站　電視機 × 1　大安區 Demo 路 8 號</title>
+            </g>
+            <g class="route-pin" transform="translate(308.9846153845433 298)">
+              <circle r="16" fill="#ffffff"></circle>
+              <circle r="13" fill="#8a5a12"></circle><text y="5" text-anchor="middle">9</text>
+              <title>第 9 站　腳踏車 × 1　大安區 Demo 路 9 號</title>
+            </g>
+          </svg></div>
+        <p class="route-map-legend"><span class="dot dot--route"></span>目前路線<span class="dot dot--new"></span>新案件建議位置<span class="dot dot--review"></span>待班長判定<em>站點位置依案件經緯度繪製；串接 Google Maps 後改為即時路徑。</em></p>
+      </section>
+
+      <!-- 下半部：左為今日任務清單，右為圖表與判定紀錄 -->
+      <div class="dashboard-grid">
+
+        <!-- 今日任務清單：依行政區分頁，站數過多時自動翻頁 -->
+        <section class="route-panel">
+          <div class="panel-header">
+            <h2>今日任務清單</h2><span>9 站</span>
+          </div>
+
+          <!-- 行政區切換：各區件數與載重 -->
+          <div class="district-tabs" role="tablist" aria-label="行政區"><button type="button" role="tab" aria-selected="false"><strong>信義區</strong><small>11 件・載重 79%</small></button><button type="button" role="tab" aria-selected="true"><strong>大安區</strong><small>9 件・載重 96%</small></button><button type="button" role="tab" aria-selected="false"><strong>松山區</strong><small>8 件・載重 55%</small></button></div>
+          <div class="route-table-body">
+            <div class="route-table-inner">
+              <table class="route-table">
+                <caption class="sr-only">大安區今日清運站點，依執行順序排列</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">順序</th>
+                    <th scope="col">物品</th>
+                    <th scope="col">收運地址</th>
+                    <th scope="col">註記</th>
+                    <th scope="col">案件編號</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><span class="stop-number">1</span></td>
+                    <td class="route-item">沙發 × 1</td>
+                    <td class="route-addr">大安區 Demo 路 1 號</td>
+                    <td class="route-tags"><span class="tag">載重 9%</span></td>
+                    <td class="route-id">CASE-012</td>
+                  </tr>
+                  <tr>
+                    <td><span class="stop-number">2</span></td>
+                    <td class="route-item">櫥櫃 × 1</td>
+                    <td class="route-addr">大安區 Demo 路 2 號</td>
+                    <td class="route-tags"><span class="tag">載重 8%</span></td>
+                    <td class="route-id">CASE-013</td>
+                  </tr>
+                  <tr>
+                    <td><span class="stop-number">3</span></td>
+                    <td class="route-item">床組 × 1</td>
+                    <td class="route-addr">大安區 Demo 路 3 號</td>
+                    <td class="route-tags"><span class="tag">載重 10%</span></td>
+                    <td class="route-id">CASE-014</td>
+                  </tr>
+                  <tr>
+                    <td><span class="stop-number">4</span></td>
+                    <td class="route-item">電冰箱 × 1</td>
+                    <td class="route-addr">大安區 Demo 路 4 號</td>
+                    <td class="route-tags"><span class="tag tag--special">含冷媒設備，需特殊處理</span><span class="tag">載重 8%</span></td>
+                    <td class="route-id">CASE-015</td>
+                  </tr>
+                  <tr>
+                    <td><span class="stop-number">5</span></td>
+                    <td class="route-item">桌椅 × 1</td>
+                    <td class="route-addr">大安區 Demo 路 5 號</td>
+                    <td class="route-tags"><span class="tag">載重 6%</span></td>
+                    <td class="route-id">CASE-016</td>
+                  </tr>
+                  <tr>
+                    <td><span class="stop-number">6</span></td>
+                    <td class="route-item">洗衣機 × 1</td>
+                    <td class="route-addr">大安區 Demo 路 6 號</td>
+                    <td class="route-tags"><span class="tag">載重 9%</span></td>
+                    <td class="route-id">CASE-017</td>
+                  </tr>
+                  <tr>
+                    <td><span class="stop-number">7</span></td>
+                    <td class="route-item">冷氣機 × 1</td>
+                    <td class="route-addr">大安區 Demo 路 7 號</td>
+                    <td class="route-tags"><span class="tag tag--special">含冷媒設備，需特殊處理</span><span class="tag">載重 8%</span></td>
+                    <td class="route-id">CASE-018</td>
+                  </tr>
+                  <tr>
+                    <td><span class="stop-number">8</span></td>
+                    <td class="route-item">電視機 × 1</td>
+                    <td class="route-addr">大安區 Demo 路 8 號</td>
+                    <td class="route-tags"><span class="tag">載重 10%</span></td>
+                    <td class="route-id">CASE-019</td>
+                  </tr>
+                  <tr>
+                    <td><span class="stop-number">9</span></td>
+                    <td class="route-item">腳踏車 × 1</td>
+                    <td class="route-addr">大安區 Demo 路 9 號</td>
+                    <td class="route-tags"><span class="tag tag--warning">待班長判定</span><span class="tag">載重 8%</span></td>
+                    <td class="route-id">CASE-020</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 翻頁：清單尾端與右欄齊平，超出就換頁 -->
+          <div class="route-pagination">
+            <p>顯示第 1–9 站，共 9 站</p>
+          </div>
+        </section>
+
+        <!-- 右欄：物品類別圓餅圖 ＋ 調度決策紀錄 -->
+        <aside class="dashboard-aside">
+
+          <!-- 物品類別組成：11 個品項歸成 5 個處理類別，避免出現大量「其他」 -->
+          <section class="chart-panel">
+            <div class="panel-header panel-header--compact">
+              <h2>物品類別組成</h2>
+              <div class="scope-switch" role="group" aria-label="統計範圍"><button type="button" aria-pressed="true">大安區</button><button type="button" aria-pressed="false">全區</button></div>
+            </div>
+            <div class="donut-block">
+
+              <!-- 圓餅圖：色彩經色盲安全檢核，相鄰色差 ΔE ≥ 8 -->
+              <div class="donut-figure"><svg viewBox="0 0 140 140" role="img" aria-label="大安區物品處理類別組成環圈圖，共 9 件">
+                  <circle cx="70" cy="70" r="54" fill="none" stroke="#eef1ef" stroke-width="26"></circle>
+                  <circle class="donut-slice" cx="70" cy="70" r="54" fill="none" stroke="#008f74" stroke-width="26" stroke-dasharray="148.79644737231004 190.4955592153876" stroke-dashoffset="0" transform="rotate(-90 70 70)" opacity="1">
+                    <title>家具類：4 件（44.4%）</title>
+                  </circle>
+                  <circle class="donut-slice" cx="70" cy="70" r="54" fill="none" stroke="#4a86d6" stroke-width="26" stroke-dasharray="73.39822368615502 265.89378290154264" stroke-dashoffset="-150.79644737231004" transform="rotate(-90 70 70)" opacity="1">
+                    <title>含冷媒家電：2 件（22.2%）</title>
+                  </circle>
+                  <circle class="donut-slice" cx="70" cy="70" r="54" fill="none" stroke="#d19a3a" stroke-width="26" stroke-dasharray="73.39822368615502 265.89378290154264" stroke-dashoffset="-226.19467105846508" transform="rotate(-90 70 70)" opacity="1">
+                    <title>一般家電：2 件（22.2%）</title>
+                  </circle>
+                  <circle class="donut-slice" cx="70" cy="70" r="54" fill="none" stroke="#6f47a3" stroke-width="26" stroke-dasharray="35.69911184307751 303.59289474462014" stroke-dashoffset="-301.5928947446201" transform="rotate(-90 70 70)" opacity="1">
+                    <title>自行車與金屬物：1 件（11.1%）</title>
+                  </circle>
+                </svg>
+                <div class="donut-center"><strong>9</strong><small>件・今日案件</small></div>
+              </div>
+              <table class="donut-legend">
+                <caption class="sr-only">大安區物品處理類別件數與占比</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">處理類別</th>
+                    <th scope="col">件數</th>
+                    <th scope="col">占比</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row" title="沙發 1、櫥櫃 1、床組 1、桌椅 1"><i aria-hidden="true" style="background: rgb(0, 143, 116);"></i>家具類</th>
+                    <td>4</td>
+                    <td>44.4%</td>
+                  </tr>
+                  <tr>
+                    <th scope="row" title="電冰箱 1、冷氣機 1"><i aria-hidden="true" style="background: rgb(74, 134, 214);"></i>含冷媒家電</th>
+                    <td>2</td>
+                    <td>22.2%</td>
+                  </tr>
+                  <tr>
+                    <th scope="row" title="洗衣機 1、電視機 1"><i aria-hidden="true" style="background: rgb(209, 154, 58);"></i>一般家電</th>
+                    <td>2</td>
+                    <td>22.2%</td>
+                  </tr>
+                  <tr>
+                    <th scope="row" title="腳踏車 1"><i aria-hidden="true" style="background: rgb(111, 71, 163);"></i>自行車與金屬物</th>
+                    <td>1</td>
+                    <td>11.1%</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p class="donut-note">依後端處理方式歸併品名；滑鼠停留可檢視該類別明細。</p>
+            </div>
+          </section>
+
+          <!-- 調度決策紀錄：每一步都標明是規則判定還是模型輸出 -->
+          <section class="trace-panel">
+            <div class="panel-header panel-header--compact">
+              <h2>調度決策紀錄</h2><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M9 6h11M9 12h11M9 18h11"></path>
+                <circle cx="4.5" cy="6" r="1"></circle>
+                <circle cx="4.5" cy="12" r="1"></circle>
+                <circle cx="4.5" cy="18" r="1"></circle>
+              </svg>
+            </div>
+            <div class="trace-list">
+              <div class="trace-step trace-step--done"><span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4.2 4.2L19 6.5"></path></svg></span>
+                <div><strong>分析照片</strong>
+                  <p>辨識：彈簧床墊 × 1，長度 &gt;180 cm，不可拆解</p>
+                </div><i></i>
+              </div>
+              <div class="trace-step trace-step--done"><span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4.2 4.2L19 6.5"></path></svg></span>
+                <div><strong>查詢收運資格</strong>
+                  <p>符合家戶巨大垃圾範圍</p>
+                </div><i></i>
+              </div>
+              <div class="trace-step trace-step--done"><span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4.2 4.2L19 6.5"></path></svg></span>
+                <div><strong>計算插入位置</strong>
+                  <p>最佳位置：第 3 站後，+4 分鐘</p>
+                </div><i></i>
+              </div>
+              <div class="trace-step trace-step--warning"><span>!</span>
+                <div><strong>檢查載重</strong>
+                  <p>插入後達 103%，超過本班次容量</p>
+                </div><i></i>
+              </div>
+              <div class="trace-step trace-step--done"><span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4.2 4.2L19 6.5"></path></svg></span>
+                <div><strong>改為查詢明日班次</strong>
+                  <p>明日該區餘裕 42%，可容納</p>
+                </div><i></i>
+              </div>
+              <div class="trace-step trace-step--done"><span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4.2 4.2L19 6.5"></path></svg></span>
+                <div><strong>提出排程建議</strong>
+                  <p>排入明日第 2 站</p>
+                </div>
+              </div>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </main>
+
+    <!-- 正式頁尾：機關資訊、政策連結、原型展示聲明（不得移除） -->
+    <footer class="gov-footer">
+      <div class="gov-footer-inner">
+        <div class="gov-footer-org"><strong>臺北市政府環境保護局</strong>
+          <dl>
+            <div>
+              <dt>地址</dt>
+              <dd>臺北市信義區市府路 1 號</dd>
+            </div>
+            <div>
+              <dt>服務專線</dt>
+              <dd>1999（外縣市請撥 02-2720-8889）</dd>
+            </div>
+            <div>
+              <dt>服務時間</dt>
+              <dd>週一至週五 08:30–17:30</dd>
+            </div>
+          </dl>
+        </div>
+        <nav class="gov-footer-links" aria-label="網站政策">
+          <ul>
+            <li><a href="#policy">隱私權政策</a></li>
+            <li><a href="#policy">資訊安全政策</a></li>
+            <li><a href="#policy">政府網站資料開放宣告</a></li>
+            <li><a href="#policy">無障礙說明</a></li>
+          </ul>
+        </nav>
+      </div>
+      <div class="gov-footer-meta">
+        <p>本系統為大型廢棄物調度助手原型展示，判定結果僅供參考，非臺北市政府正式收運預約管道。</p>
+        <p>資料時間 2026/08/17 14:30｜系統版本 v0.9.0（Demo）</p>
+      </div>
+    </footer>
+  </div>
+</body>
+
+</html>
