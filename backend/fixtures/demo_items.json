@@ -1,0 +1,5 @@
+[
+  {"name": "範例項目 A", "category": "類型一", "value": 92.0, "confidence": 0.95, "note": "示範用固定資料"},
+  {"name": "範例項目 B", "category": "類型一", "value": 64.0, "confidence": 0.88, "note": "用來演示『差一點』提醒"},
+  {"name": "範例項目 C", "category": "類型二", "value": 31.0, "confidence": 0.55, "note": "用來演示低信心標記"}
+]

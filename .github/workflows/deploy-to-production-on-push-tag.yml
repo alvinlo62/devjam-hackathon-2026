@@ -1,0 +1,77 @@
+name: Deploy To Production On Push Tag
+
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  PROJECT_ID: hackathon-test-505708
+  SERVICE: hackathon-test-service
+  REPOSITORY: hackathon-test
+  IMAGE: hackathon-test
+  # 部署用的 service account email（例如 hackathon-deployer@YOUR_PROJECT_ID.iam.gserviceaccount.com）。
+  # 同一個 SA 兼任 CI 部署身分與 Cloud Run 執行身分，這樣 runtime 讀 Secret Manager 才會用到
+  # 有掛 secretmanager.secretAccessor 角色的那個身分，不會落到權限不足的預設 Compute SA 上。
+  SERVICE_ACCOUNT: hackathon-test-account@hackathon-test-505708.iam.gserviceaccount.com
+
+  # Cloud SQL instance connection name（格式 PROJECT:REGION:INSTANCE）。
+  # 只給 --add-cloudsql-instances 用來掛 Cloud SQL Auth Proxy，deploy 當下就要知道，
+  # 不算敏感資訊（跟 PROJECT_ID 同等級）。app 執行時讀的連線參數另外走
+  # Secret Manager 的 CLOUD_SQL_CONFIG（見下面 --set-secrets），兩邊各自獨立、值可以重複填。
+  DB_INSTANCE_CONNECTION_NAME: hackathon-test-505708:asia-east1:hackathon-test
+
+jobs:
+  setup-build-publish-deploy:
+    name: Setup, Build, Publish, and Deploy
+    runs-on: ubuntu-latest
+    environment: production
+
+    permissions:
+      contents: "read"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get Tag Name & Set env
+        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+
+      - name: Run backend tests
+        run: |
+          cd backend
+          pip install uv
+          uv sync
+          uv run pytest
+
+      # 用 GCP service account 的 JSON key。GCP 建 service account → 下載金鑰
+      # → 貼進 repo Settings → Secrets and variables → Actions → Secrets（scope 在 production environment）
+      - id: "auth"
+        uses: "google-github-actions/auth@v2"
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }} # !! 比賽當天要重新設定 !!
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Set Configure Docker
+        run: gcloud auth configure-docker asia-east1-docker.pkg.dev
+
+      - name: Docker Build Image
+        run: docker build -f Dockerfile -t asia-east1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:${{ env.RELEASE_VERSION }} -t asia-east1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:latest .
+
+      - name: Docker Push Image
+        run: docker push asia-east1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }} --all-tags
+
+      - name: Deploy To Cloud Run
+        run: |
+          gcloud run deploy ${{ env.SERVICE }} \
+            --image asia-east1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:${{ env.RELEASE_VERSION }} \
+            --region asia-east1 \
+            --platform managed \
+            --allow-unauthenticated \
+            --service-account ${{ env.SERVICE_ACCOUNT }} \
+            --add-cloudsql-instances ${{ env.DB_INSTANCE_CONNECTION_NAME }} \
+            --set-secrets GEMINI_API_KEY=GEMINI_API_KEY:latest,CLOUD_SQL_CONFIG=CLOUD_SQL_CONFIG:latest
